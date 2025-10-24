@@ -1,0 +1,15 @@
+Vielleicht kannst du mir helfen wie du den langgraph aufziehen würdest für meine Anwendung. 
+Ich habe folgenden Anwendungsfall: 
+
+Filmempfehlungs-chatbot 
+1. der nutzer gibt seine Interessen ein was er sehen möchte 
+2. der erste schritt im Graphen ist ein Agent der nachschaut ob die Eingabe präzise genug ist um zu suchen. 
+    2. a. Wenn merh infos nötig sind um eine empfehlung zu machent stellt er intelligente Rückfragen. (hier könnte der graph beendet werden oder eben interrupt() benutzt werden 
+    2. b. Alle infos da und der Graph läuft weiter. (startet eine content suche und schreibt eine empfehlung)
+
+Ich will den langgraph graph simpel halten. 
+1. ich will den state behalten (in memory so lange die session existiert)
+2. ich will  einen simplen graphen mit verschiedenen agenten die eine antwort generieren können. 
+3. macht der nutzer eine neue eingabe (beantwortet eine frage oder will mehr) soll der graph wieder starten und der erste agent das eben bewerten und entscheiden wie er damit verfahren soll. 
+
+wie könnte ich das am besten umsetzen mit langgraph
