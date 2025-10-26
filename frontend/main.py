@@ -3,9 +3,16 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from backend.graph import create_graph
+from backend.utils.setupenv import enable_langsmith
 from langchain_core.messages import HumanMessage
 
+
 def create_chatbot():
+    
+    #init langsmith
+    enable_langsmith()
+    
+    
     """Erstellt und konfiguriert den LangGraph Chatbot"""
     print("🤖 Chatbot wird initialisiert...")
     
