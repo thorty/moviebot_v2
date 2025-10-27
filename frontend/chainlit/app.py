@@ -75,7 +75,7 @@ async def main(message: cl.Message):
             
 
     for msg, _ in app.stream(                
-        graph_input,
+        graph_input, 
         config,
         stream_mode="messages",
     ):

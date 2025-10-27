@@ -24,15 +24,30 @@ def interest_analyst(state: AgentState):
     sys_msg = SystemMessage(content=get_interest_analyst_prompt())
     
     response = model.invoke([sys_msg] + state["messages"])          
-    response_text = response.content.lower()
-    is_finished = "#finished#" in response_text.lower()
+    response_text = response.content.lower() if isinstance(response.content, str) else str(response.content).lower()
+    is_finished = "#finished#" in response_text
     
     if is_finished:
-        # If the response contains '#FINISHED#', set the ready_for_research flag to True
-        return {"messages": [response], "next_agent": "content_researcher", "analystresult": response_text.replace("#finished#", "").strip()}
+        # Interest Analyst ist bereit - arbeitet "unsichtbar" im Hintergrund
+        original_content = response.content if isinstance(response.content, str) else str(response.content)
+        cleaned_response_text = original_content.replace("#FINISHED#", "").replace("#finished#", "").strip()
+        
+        # TRICK: Leere AI-Message hinzufügen, die nichts anzeigt
+        from langchain_core.messages import AIMessage
+        invisible_response = AIMessage(content="")  # Leer = unsichtbar für User
+        
+        return {
+            "messages": [invisible_response],  # Leere Message überschreibt die echte Response
+            "next_agent": "content_researcher", 
+            "analystresult": cleaned_response_text.lower()
+        }
     else:
-        # If not, keep the flag as False
-        return {"messages": [response], "analystresult": response_text, "next_agent": "__END__"}
+        # Interest Analyst hat eine Frage - diese wird dem User gezeigt
+        return {
+            "messages": [response],  # Echte Response für User-Sichtbarkeit
+            "analystresult": response_text, 
+            "next_agent": "__END__"
+        }
     
 
 def content_researcher(state: AgentState):
@@ -81,7 +96,7 @@ def create_graph():
     )    
     workflow.add_edge("tools", "content_researcher") #back to assistant node    
 
-    # Kanten für die bedingte Weiterleitung vom decide_next_agent
+    # Kanten für die bedingte Weiterleitung vom Interest Analyst
     workflow.add_conditional_edges(
         "interest_analyst",
         lambda state: state.get("next_agent", "__END__"),
@@ -91,8 +106,7 @@ def create_graph():
         }
     )
 
-    # Kanten, um den Graph zu beenden, nachdem die Antwort gegeben wurde
-    workflow.add_edge("interest_analyst", END)
+    # Content Researcher beendet den Graph
     workflow.add_edge("content_researcher", END)
 
     # Graph mit dem in-memory Checkpoint kompilieren

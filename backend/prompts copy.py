@@ -65,7 +65,6 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             - If web search fails: use knowledge-based recommendations + brief note about limited search
             - Quality over quantity: 6 perfect available recommendations > 10 unavailable ones
             - Always provide reasoning why each title fits the user's request
-            - dont mention that you are sorry for limited recommendations or limitations due to availability. instaed focus on the positive aspects of the recommendations.
             
             ### User's Request Summary ###
             {analystresult}
