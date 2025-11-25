@@ -34,8 +34,7 @@ TMDB as Main Datasource
 ### backend
 
 - finished is included in the result (because of streaming)
-- datum in der titelsuche
-- haluziniert wenn kein ergebnis
+- keine loop und sagt trotzdem manchmal was es macht anstelle es zu tun
 - optimize research and retrieval (perplexity)
 - include documentation
 
