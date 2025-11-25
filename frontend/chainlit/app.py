@@ -80,5 +80,15 @@ async def main(message: cl.Message):
         stream_mode="messages",
     ):
         if isinstance(msg, AIMessageChunk):
+            # 🎯 FILTER: Ignore messages containing #FINISHED#
+            if hasattr(msg, 'content') and msg.content:
+                # Skip messages with #FINISHED# - diese sind für interne Weiterleitung
+                if "#finished#" in str(msg.content).lower():
+                    continue
+                    
             answer.content += msg.content  # type: ignore
             await answer.update()
+    
+if __name__ == "__main__":
+    from chainlit.cli import run_chainlit
+    run_chainlit(__file__)

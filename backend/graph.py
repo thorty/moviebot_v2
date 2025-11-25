@@ -28,23 +28,19 @@ def interest_analyst(state: AgentState):
     is_finished = "#finished#" in response_text
     
     if is_finished:
-        # Interest Analyst ist bereit - arbeitet "unsichtbar" im Hintergrund
+        # Interest Analyst ist bereit - deine add_message Funktion filtert automatisch!
         original_content = response.content if isinstance(response.content, str) else str(response.content)
         cleaned_response_text = original_content.replace("#FINISHED#", "").replace("#finished#", "").strip()
         
-        # TRICK: Leere AI-Message hinzufügen, die nichts anzeigt
-        from langchain_core.messages import AIMessage
-        invisible_response = AIMessage(content="")  # Leer = unsichtbar für User
-        
         return {
-            "messages": [invisible_response],  # Leere Message überschreibt die echte Response
+            "messages": [response],  # add_message Funktion filtert das #FINISHED# automatisch heraus!
             "next_agent": "content_researcher", 
             "analystresult": cleaned_response_text.lower()
         }
     else:
-        # Interest Analyst hat eine Frage - diese wird dem User gezeigt
+        # Interest Analyst hat eine Frage - wird normal angezeigt
         return {
-            "messages": [response],  # Echte Response für User-Sichtbarkeit
+            "messages": [response],  # Normale Anzeige
             "analystresult": response_text, 
             "next_agent": "__END__"
         }

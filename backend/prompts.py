@@ -23,7 +23,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             - Combine knowledge + web results (25-50 titles total)
             - Remove duplicates, assess relevance
             - Use `filter_streaming_providers` to check availability on user's platforms
-            - If <6 suitable titles remain: broaden search criteria
+            - If <20 suitable titles remain: broaden search criteria and repeat Step 2
             
             ### Final Output Format (What the user sees) ###
             
@@ -49,7 +49,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             - Example: If Disney Plus has it in flatrate, don't mention Amazon Prime rental
             
             **No Availability = No Recommendation:**
-            - If a title is NOT available on any of the user's providers, don't recommend it at all
+            - If a title is NOT available on any of the user's providers: {', '.join(userstreamingproviders)}, don't recommend it at all
             - Only recommend titles that are actually watchable on user's platforms
             - Better to have 4 great available titles than 8 titles with unavailable ones
             

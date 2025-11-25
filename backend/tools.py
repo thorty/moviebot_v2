@@ -20,7 +20,7 @@ def filter_streaming_providers(titleList: list[str], userstreamingproviders: lis
     """Filters the streaming providers based on the user's preferences.
     
     Args:
-        titleList (list[str]): A list of titles to filter.
+        titleList (list[str]): A list of titles to filter. only titeles no additional info! (dates, subtitles, description etc)
         userstreamingproviders (list[str]): A list of user's preferred streaming providers.    
     """
     print(f"tmdb filter calles: titles: {titleList}, streamingproviders: {userstreamingproviders}")
