@@ -1,6 +1,8 @@
 import os
 import dotenv
 import time
+import json
+from typing import Any
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
@@ -10,95 +12,95 @@ from langchain_openai import AzureChatOpenAI
 from backend.tools import get_all_tools
 from langchain_core.messages import SystemMessage, AIMessage
 
-def get_retry_strategy(retry_count: int) -> dict:
+def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     """
-    Progressive broadening strategy for content search retries.
-    Each retry uses wider search criteria to increase chances of finding content.
+    Logs state information before/after node execution.
     
     Args:
-        retry_count: Current retry attempt (0-based)
-    
-    Returns:
-        dict: Strategy configuration for the current retry
+        node_name: Name of the node
+        state: Current agent state
+        position: "ENTRY" or "EXIT"
     """
-    strategies = {
-        0: {
-            "search_scope": "exact_match",
-            "year_range": 3,
-            "genres": "strict",
-            "description": "Genaue Übereinstimmung mit Nutzeranfrage"
-        },
-        1: {
-            "search_scope": "similar_themes",
-            "year_range": 5,
-            "genres": "flexible",
-            "include_lesser_known": True,
-            "description": "Ähnliche Themen und weniger bekannte Titel"
-        },
-        2: {
-            "search_scope": "broad_category",
-            "year_range": 10,
-            "genres": "any",
-            "include_lesser_known": True,
-            "alternative_suggestions": True,
-            "description": "Breite Kategorie mit alternativen Vorschlägen"
-        }
+    print(f"\n{'='*80}")
+    print(f"[{position}] {node_name.upper()}")
+    print(f"{'='*80}")
+    
+    # Log relevant state fields (excluding messages for brevity)
+    recommended_titles = state.get("recommended_titles", [])
+    state_summary = {
+        "userstreamingproviders": state.get("userstreamingproviders", []),
+        "analystresult": state.get("analystresult", "")[:100] + "..." if state.get("analystresult", "") else "",
+        "next_agent": state.get("next_agent", ""),
+        "control_signal": state.get("control_signal", ""),
+        "found_titles_count": len(recommended_titles),  # Calculated from recommended_titles
+        "validation_status": state.get("validation_status", ""),
+        "recommended_titles_count": len(recommended_titles),
+        "recommended_titles": recommended_titles,
+        "last_filter_results": {
+            "found_count": state.get("last_filter_results", {}).get("found_count", 0)
+        } if state.get("last_filter_results") else {},
+        "messages_count": len(state.get("messages", []))
     }
     
-    return strategies.get(retry_count, strategies[2])
+    print(json.dumps(state_summary, indent=2, ensure_ascii=False))
+    print(f"{'='*80}\n")
 
 def result_validator(state: AgentState):
     """
-    Rule-based validation of content search results.
-    Determines whether to end successfully, retry with broader criteria, or provide fallback.
+    Validates content search results.
+    Checks if content_researcher found results or sent #NO_RESULTS# signal.
     
     Decision logic:
-    - >= 1 title found: SUCCESS → END
-    - < 1 title AND retry_count < 2: RETRY → content_researcher (Retry 1 oder 2)
-    - < 1 title AND retry_count >= 2: FALLBACK → fallback_response (nach 3 Versuchen total)
-    
-    Retry count: 0 = erster Versuch, 1 = zweiter Versuch, 2 = dritter Versuch
+    - Content found: SUCCESS → END
+    - #NO_RESULTS# signal: FALLBACK → fallback_response
     """
-    retry_count = state.get("retry_count", 0)
-    max_retries = 2  # 0, 1, 2 = 3 Versuche total
-    found_titles_count = state.get("found_titles_count", 0)
+    log_state("result_validator", dict(state), "ENTRY")
     
-    print(f"[VALIDATOR] Attempt {retry_count + 1}/3, Found titles: {found_titles_count}")
+    recommended_titles = state.get("recommended_titles", [])
+    found_titles_count = len(recommended_titles)  # Use actual list length as source of truth
     
-    # Success: Genug Titel gefunden (mind. 2 für robuste Empfehlung)
-    if found_titles_count >= 2:
-        print("[VALIDATOR] ✓ Success: Sufficient titles found")
-        return {
-            "validation_status": "success",
-            "next_agent": "__END__"
-        }
+    # Check control_signal (internal state, not in messages)
+    control_signal = state.get("control_signal", "")
+    no_results_signal = control_signal == "no_results"
     
-    # Max retries erreicht: Fallback (nach Versuch 3)
-    if retry_count >= max_retries:
-        print("[VALIDATOR] ⚠ Max attempts (3) reached, routing to fallback")
-        return {
+    print(f"[VALIDATOR] Found titles: {found_titles_count}, No-results signal: {no_results_signal}")
+    
+    # LLM signaled no results after 3 attempts
+    if no_results_signal:
+        print("[VALIDATOR] ⚠ LLM sent #NO_RESULTS# signal, routing to fallback")
+        result = {
             "validation_status": "max_retries",
             "next_agent": "fallback_response"
         }
+        log_state("result_validator", {**state, **result}, "EXIT")
+        return result
     
-    # Retry mit neuer Strategie
-    new_retry_count = retry_count + 1
-    new_strategy = get_retry_strategy(new_retry_count)
+    # Success: Found titles
+    if found_titles_count >= 1:
+        print("[VALIDATOR] ✓ Success: Titles found")
+        result = {
+            "validation_status": "success",
+            "next_agent": "__END__"
+        }
+        log_state("result_validator", {**state, **result}, "EXIT")
+        return result
     
-    print(f"[VALIDATOR] ↻ Starting attempt {new_retry_count + 1}/3 - Strategy: {new_strategy['description']}")
-    
-    return {
-        "validation_status": "retry",
-        "next_agent": "content_researcher",
-        "retry_count": new_retry_count,
-        "retry_strategy": new_strategy
+    # Should not happen, but fallback just in case
+    print("[VALIDATOR] ⚠ Unexpected state: No titles and no signal, routing to END")
+    result = {
+        "validation_status": "success",
+        "next_agent": "__END__"
     }
+    log_state("result_validator", {**state, **result}, "EXIT")
+    return result
 
 def fallback_response(state: AgentState):
     """
     Generates a helpful fallback response when no suitable content was found
     after maximum retry attempts.
     """
+    log_state("fallback_response", dict(state), "ENTRY")
+    
     userstreamingproviders = state.get("userstreamingproviders", [])
     
     fallback_message = f"""Leider konnte ich auf deinen Streaming-Plattformen ({', '.join(userstreamingproviders)}) keine passenden Titel zu deiner Anfrage finden.
@@ -117,13 +119,17 @@ Was möchtest du tun?"""
     
     response_msg = AIMessage(content=fallback_message)
     
-    return {
+    result = {
         "messages": [response_msg],
         "next_agent": "__END__"
     }
+    
+    log_state("fallback_response", {**state, **result}, "EXIT")
+    return result
 
 def interest_analyst(state: AgentState):
-        
+    log_state("interest_analyst", dict(state), "ENTRY")
+    
     # Initialize our LLM
     model = AzureChatOpenAI(   
         api_key= os.getenv("AZURE_API_KEY"),
@@ -141,31 +147,41 @@ def interest_analyst(state: AgentState):
     is_finished = "#finished#" in response_text
     
     if is_finished:
-        # Interest Analyst ist bereit - deine add_message Funktion filtert automatisch!
+        # Interest Analyst ist bereit - remove #FINISHED# from content before sending
         original_content = response.content if isinstance(response.content, str) else str(response.content)
         cleaned_response_text = original_content.replace("#FINISHED#", "").replace("#finished#", "").strip()
         
-        # WICHTIG: Reset retry state bei neuem Search-Zyklus
-        return {
-            "messages": [response],  # add_message Funktion filtert das #FINISHED# automatisch heraus!
+        # Create clean message without #FINISHED# tag
+        clean_response = AIMessage(content=cleaned_response_text)
+        
+        # Reset state for new search cycle
+        result = {
+            "messages": [clean_response],  # Send cleaned message to user
             "next_agent": "content_researcher", 
             "analystresult": cleaned_response_text.lower(),
-            "retry_count": 0,  # Reset für neuen Search
-            "found_titles_count": 0,  # Reset
+            "control_signal": "",  # Reset
             "validation_status": "pending",  # Reset
             "last_filter_results": {}  # Reset
         }
+        log_state("interest_analyst", {**state, **result}, "EXIT")
+        return result
     else:
         # Interest Analyst hat eine Frage - wird normal angezeigt
-        return {
+        result = {
             "messages": [response],  # Normale Anzeige
             "analystresult": response_text, 
             "next_agent": "__END__"
         }
+        log_state("interest_analyst", {**state, **result}, "EXIT")
+        return result
     
 
 def content_researcher(state: AgentState):
-
+    """
+    Content researcher with LLM-managed internal retry logic.
+    LLM will make up to 3 attempts internally and send #NO_RESULTS# if unsuccessful.
+    """
+    log_state("content_researcher", dict(state), "ENTRY")
     
     # Initialize our LLM
     model = AzureChatOpenAI(   
@@ -174,7 +190,6 @@ def content_researcher(state: AgentState):
         temperature=0.3,
         model="GPT4-UK",        
         azure_endpoint=os.getenv("AZURE_API_BASE")
-        
     )
     tools = get_all_tools()
     model_with_searchtools = model.bind_tools(tools)    
@@ -182,14 +197,12 @@ def content_researcher(state: AgentState):
     default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
     userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
     analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
-    retry_count = state.get("retry_count", 0)
-    retry_strategy = state.get("retry_strategy", get_retry_strategy(0))
     recommended_titles = state.get("recommended_titles", [])
     
-    # Erweitere System Prompt mit Retry-Strategie
+    # Build system prompt
     base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult)
     
-    # Füge Info über bereits empfohlene Titel hinzu
+    # Add duplicate prevention if previous recommendations exist
     if recommended_titles:
         duplicate_prevention = f"""
         
@@ -201,44 +214,35 @@ def content_researcher(state: AgentState):
         """
         base_prompt += duplicate_prevention
     
-    if retry_count > 0:
-        strategy_hint = f"""
-        
-        **WICHTIG - Retry-Strategie (Versuch {retry_count + 1}/4):**
-        - Such-Scope: {retry_strategy.get('search_scope', 'normal')}
-        - Jahr-Range: letzte {retry_strategy.get('year_range', 3)} Jahre
-        - Genre-Flexibilität: {retry_strategy.get('genres', 'strict')}
-        - Strategie: {retry_strategy.get('description', 'Standard-Suche')}
-        
-        Passe deine Suchanfragen entsprechend an, um mehr Ergebnisse zu finden!
-        """
-        base_prompt += strategy_hint
-    
     sys_msg = SystemMessage(content=base_prompt)
     response = model_with_searchtools.invoke([sys_msg] + state["messages"])
     
-    # Extrahiere found_titles_count aus Tool-Calls wenn vorhanden
-    found_count = 0
+    # Check for #NO_RESULTS# signal
+    if hasattr(response, 'content') and isinstance(response.content, str):
+        if "#NO_RESULTS#" in response.content or "#no_results#" in response.content.lower():
+            print("[CONTENT_RESEARCHER] LLM sent #NO_RESULTS# signal after 3 attempts")
+            # Set control signal in state (not in messages)
+            result = {
+                "control_signal": "no_results"  # Internal signal for validator
+            }
+            log_state("content_researcher", {**state, **result}, "EXIT")
+            return result
     
-    if hasattr(response, 'tool_calls') and response.tool_calls:
-        for tool_call in response.tool_calls:
-            if tool_call.get('name') == 'filter_streaming_providers':
-                # Dieser Wert wird später vom ToolNode aktualisiert
-                print("[CONTENT_RESEARCHER] filter_streaming_providers wird aufgerufen")
-    
-    # Falls bereits Filter-Ergebnisse im State vorhanden
-    if state.get("last_filter_results"):
-        found_count = state["last_filter_results"].get("found_count", 0)
-    
-    return {
-        "messages": [response],
-        "found_titles_count": found_count
+    # Normal flow - keep existing found_titles_count from tool_node
+    # Only return messages, other state values are preserved by LangGraph
+    result = {
+        "messages": [response]
     }
+    
+    log_state("content_researcher", {**state, **result}, "EXIT")
+    return result
 
 def tool_node_with_state_tracking(state: AgentState):
     """
     Custom tool node that tracks filter_streaming_providers results in state.
     """
+    log_state("tool_node", dict(state), "ENTRY")
+    
     tools = get_all_tools()
     tool_node = ToolNode(tools)
     
@@ -284,7 +288,6 @@ def tool_node_with_state_tracking(state: AgentState):
                         # Update result mit tracking info
                         result.update({
                             "last_filter_results": filter_results,
-                            "found_titles_count": found_count,
                             "recommended_titles": updated_recommended
                         })
                         break
@@ -293,8 +296,7 @@ def tool_node_with_state_tracking(state: AgentState):
                     import traceback
                     traceback.print_exc()
     
-    return result
-    
+    log_state("tool_node", {**state, **result}, "EXIT")
     return result
 
 def create_graph():

@@ -26,9 +26,13 @@ TMDB as Main Datasource
 - Sessionhandling
 - Shorttermmemory
 
+## bugs
+-  fallback does not work ✅ 
+
 
 ## todos
 
+- nur ein streaming provider - anders suchen: mehr prio auf provider
 - run in docker
 
 ### ideen

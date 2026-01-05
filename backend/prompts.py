@@ -27,15 +27,25 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             - Avoid: werstreamtes.de
             - GOAL: Collect 50-80 titles total before filtering (balance quality & speed)
             
-            **Step 3: Filtering & Validation**
+            **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
             - Combine knowledge + web results (aim for 50-80 titles total)
             - Remove duplicates, assess relevance
             - Use `filter_streaming_providers` with ALL collected titles (send large list!)
-            - If <1  suitable titles remain after filtering: broaden search and add more titles
+            - **WICHTIG - Retry-Limit:**
+              • If <2 suitable titles after first filter: Try ONCE more with broader search
+              • If still <2 titles: Try ONE final time with very broad search (other genres/years)
+              • Maximum 3 attempts total (1 initial + 2 retries)
+              • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
             
             ### Final Output Format (What the user sees) ###
             
+            **If you found ≥2 suitable titles after filtering:**
             Present exactly 6-8 high-quality recommendations in this format:
+            
+            **If you found <2 suitable titles after 3 attempts:**
+            Send only: "#NO_RESULTS#" (The system will handle the fallback response)
+            
+            **Regular Output Format (when results found):**
             
             *[kurzes intro mit den nutzerinteressen]*
             
