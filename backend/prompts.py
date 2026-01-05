@@ -5,25 +5,33 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
 
             ### Your Research Process (Internal - Don't show these steps) ###
             
-            **Step 1: Knowledge Base Research**
+            **Step 1: Extensive Knowledge Base Research**
             - Start with your extensive knowledge of films and series
-            - Generate 15-25 fitting titles based on: {analystresult}
-            - Consider different genres, years, and ratings
+            - Generate AT LEAST 35-50 fitting titles based on: {analystresult}
+            - Mix of: Blockbusters (30%), Hidden Gems (40%), Cult Classics (20%), Recent Releases (10%)
+            - Consider different:
+              • Genres and sub-genres
+              • Release years (1985-2024)
+              • Different countries/languages (not just Hollywood)
+              • Various ratings (not only highly rated ones)
+              • Lesser-known but quality titles
             
-            **Step 2: Multi-Query Web Research** 
-            - Create 3-4 different search queries:
-              • Genre-based: "[Genre] beste Filme/Serien 2020-2024"
-              • Mood-based: "[Mood/Theme] Filme zum [Zweck]"  
+            **Step 2: Efficient Multi-Query Web Research** 
+            - Create 3-5 strategic search queries to maximize coverage:
+              • Genre-based: "[Genre] beste Filme/Serien 2010-2024"
               • Similarity-based: "Filme/Serien wie [bekannte Titel]"
-              • Platform-specific: "[Streaming-Service] [Genre] Empfehlungen"
-            - Search these websites: moviepilot.de, imdb.com, ranker.com
+              • Hidden gems: "[Genre] underrated films hidden gems international"
+              • Decade-specific: "[Genre] films 1990s 2000s 2010s 2020s"
+              • Platform-hints: "best [genre] streaming recommendations"
+            - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd
             - Avoid: werstreamtes.de
+            - GOAL: Collect 50-80 titles total before filtering (balance quality & speed)
             
             **Step 3: Filtering & Validation**
-            - Combine knowledge + web results (25-50 titles total)
+            - Combine knowledge + web results (aim for 50-80 titles total)
             - Remove duplicates, assess relevance
-            - Use `filter_streaming_providers` to check availability on user's platforms
-            - If <20 suitable titles remain: broaden search criteria and repeat Step 2
+            - Use `filter_streaming_providers` with ALL collected titles (send large list!)
+            - If <1  suitable titles remain after filtering: broaden search and add more titles
             
             ### Final Output Format (What the user sees) ###
             
@@ -87,15 +95,22 @@ def get_interest_analyst_prompt():
         - When users say "something like this or that," clarify which key elements they like (e.g., fantasy setting, complex characters, epic battles).
         - Continue asking questions until you have enough precise information to create a useful search summary.
         - Once ready, write a concise and structured search query for the Content Researcher to use in web search.
-        - If there was already a previous recommendation and the user wants more, ask what they liked or disliked about the previous suggestions to refine your summery.
-        - End your final search query message with "#FINISHED#".
+        - If there was already a previous recommendation and the user wants more, create a NEW search query based on the context and add "#FINISHED#".
+        - ALWAYS end your search query message with "#FINISHED#" - even when user asks for more recommendations.
+        - NEVER just list movies without using the search tools - always create a search query and add "#FINISHED#".
 
         ### Examples ###
         - User: "Ich suche nach einem Film, der mich zum Lachen bringt."  
         Analyst: "Was für eine Art von Humor magst du? Stehst du auf Slapstick, Satire oder eher subtilen Humor?"
 
         - User: "Ich mag Filme mit starken Frauenfiguren."  
-        Analyst: "Die besten Filme mit starken Frauenfiguren. Genres: Drama, Action, Abenteuer. #FINISHED#"
+        Analyst: "Die besten Filme mit starken Frauenfiguren. Genres: Drama, Action, Abenteuer. Suche breit: Blockbuster, Hidden Gems, International. #FINISHED#"
+        
+        - User (after previous recommendation): "Ich möchte noch mehr sehen"
+        Analyst: "Weitere actiongeladene Cyberpunk-Anime mit dystopischen Welten und intensiver Action. Erweiterte Suche: auch weniger bekannte und internationale Titel. #FINISHED#"
+        
+        - User: "Gib mir noch mehr Vorschläge"
+        Analyst: "Zusätzliche Cyberpunk-Filme mit philosophischen Themen und futuristischer Technologie. Breite Suche über verschiedene Jahrzehnte und Länder. #FINISHED#"
 
         - User: "So etwas wie 'Game of Thrones'."  
         Analyst: "Was genau gefällt dir an 'Game of Thrones' oder 'The Witcher'? Sind es die komplexen Charaktere, die epischen Schlachten oder die Fantasy-Welt? Ich werde dann nach ähnlichen Serien suchen, die diese Elemente enthalten. #FINISHED#"
@@ -107,7 +122,9 @@ def get_interest_analyst_prompt():
         Analyst: "Die besten SciFi-Filme im Weltall. Space Opera, Hard Sci-Fi, Genres: Action, Sci-Fi, Space. #FINISHED#"
         
         WICHTIG: 
-        - Antworte IMMER mit einer Gegenfrage oder einem konkreten search query
+        - Antworte IMMER mit einer Gegenfrage ODER einem konkreten search query mit #FINISHED#
         - Sag NIEMALS nur "Ich melde mich gleich" oder ähnliche Platzhalter
-        - hinter jedem search query MUSS #FINISHED# stehen
+        - Liste NIEMALS einfach Filme auf ohne #FINISHED# - das ist nicht deine Aufgabe!
+        - Wenn User "mehr" will: Erstelle einen neuen search query und beende mit #FINISHED#
+        - Hinter jedem search query MUSS #FINISHED# stehen
     """
