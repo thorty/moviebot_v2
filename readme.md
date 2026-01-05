@@ -6,7 +6,7 @@ Prototype for a LLM based recommendation system for movies and series.
 
 ## Technologie
 langgraph
-streamlit as frontend (prototype)
+chainlit as frontend (prototype)
 
 ## APIs
 LLM: OpenAI GPT4
@@ -31,6 +31,9 @@ TMDB as Main Datasource
 
 - run in docker
 
+### ideen
+- playlisten erstellen
+
 ### backend
 
 - finished is included in the result (because of streaming)
@@ -40,6 +43,8 @@ TMDB as Main Datasource
 
 #### interview agent
 - frag ob du mehrere filme empfehlen sollst *optional
+- fragenkatalog instruieren
+- promptengineering interviewagent, komplexer gestalten
 
 ### frontend
 - filter streaming providers

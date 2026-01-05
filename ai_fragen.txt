@@ -13,3 +13,31 @@ Ich will den langgraph graph simpel halten.
 3. macht der nutzer eine neue eingabe (beantwortet eine frage oder will mehr) soll der graph wieder starten und der erste agent das eben bewerten und entscheiden wie er damit verfahren soll. 
 
 wie könnte ich das am besten umsetzen mit langgraph
+
+------
+
+
+Der graph funktioniert ansich ganz gut. auch die prompts. 
+Was nicht funktioniert ist eine Schleife wenn mit dem ersten searchquery und dem anschließenden filtern der Titel nach den Streamingprovidern nichts gefunden wird was zu den streaminganbietern passt.
+Das Ergebniss ist dann entweder die Aussage das nichts gefunden werden konnte. Die Aussage das weiter gesucht wird als Ergebnis aber ohne weiter zu suchen. (kommt vom interest analyst) 
+
+Um das zu lösen wäre meine Idee jetzt folgende.
+
+Einen weiteren LLM Call am Ender der Chain welcher die Antwort überprüft, den richtigen State setz und entweder die Antwort ausgibt oder den 'interest_analyst' oder den 'content_researcher' wieder startet.
+Der neue validator-node soll auch zählen wie oft schon gesucht wurde und dafür sorge tragen das der search query angepasst wird. Ziel ist es das es eine schleife gibt in der mehrfach gesucht wird falls beim ersten mal nichts gefunden wird was passt und das, dass ganze ein robuster chatbot wird.
+
+Ich möchte erst ideen sammeln bevor wir in die umsetzung gehen:
+
+was hälst du von der idee? 
+wäre das realisierbar?
+was würde noch gehen?
+welche risiken gehen damit einher?
+
+-------
+
+
+können wir es erreichen das bereits beim ersten research viel mehr titel gefunden und gefiltert werden wenn möglich. aktuell sind es immer recht wenige und immer die bekannten, populären titel. 
+
+Ziel ist:
+beim ersten mal bereits mehr titel finden die dennoch zum content passen weil es so gut wie immer mehr gibt als 10 oder 20. 
+

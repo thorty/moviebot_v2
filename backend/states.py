@@ -39,6 +39,15 @@ class AgentState(TypedDict):
     # typically user preferences or historical context.
    # loaded_memory: str
     
+    # Retry and validation fields
+    retry_count: int  # Number of retry attempts for content search
+    retry_strategy: dict  # Current retry strategy configuration
+    last_filter_results: dict  # Results from filter_streaming_providers tool
+    found_titles_count: int  # Number of available titles found
+    validation_status: str  # "success" | "retry" | "max_retries" | "pending"
+    search_queries_used: list[str]  # Track used queries to avoid duplicates
+    recommended_titles: list[str]  # Track titles already recommended to user (avoid duplicates)
+    
     # remaining_steps: Used by LangGraph to track the number of allowed steps 
     # to prevent infinite loops in cyclic graphs.
     remaining_steps: RemainingSteps
