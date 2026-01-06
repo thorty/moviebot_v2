@@ -30,6 +30,16 @@ AVAILABLE_PROVIDERS = [
     "Sky Ticket"
 ]
 
+# Global state to store last result for state persistence
+last_result_store = {}
+
+
+def clear_thread_state(thread_id):
+    """Clear stored state for a thread when chat is reset."""
+    if thread_id in last_result_store:
+        del last_result_store[thread_id]
+    return None
+
 
 def chat_with_bot(message, history, selected_providers, thread_id):
     """
@@ -50,10 +60,16 @@ def chat_with_bot(message, history, selected_providers, thread_id):
     # Use selected providers or default to Disney Plus
     providers = selected_providers if selected_providers else AVAILABLE_PROVIDERS
     
-    # Prepare input for LangGraph
+    # Retrieve previous state for persistence
+    previous_result = last_result_store.get(thread_id, {})
+    
+    # Prepare input for LangGraph with state persistence
     graph_input = {
         "messages": [HumanMessage(content=message)],
-        "userstreamingproviders": providers
+        "userstreamingproviders": providers,
+        # Persist important state fields between requests
+        "recommended_titles": previous_result.get("recommended_titles", []),
+        "analystresult": previous_result.get("analystresult", "")
     }
     
     # Configure with thread_id for session persistence
@@ -63,10 +79,14 @@ def chat_with_bot(message, history, selected_providers, thread_id):
     
     print(f"[DEBUG] Using thread_id: {thread_id}")
     print(f"[DEBUG] Selected providers: {providers}")
+    print(f"[DEBUG] Persisted recommended_titles: {len(graph_input['recommended_titles'])} titles")
     
     try:
         # Invoke the graph
         result = graph.invoke(graph_input, config)
+        
+        # Store result for next request (state persistence)
+        last_result_store[thread_id] = result
         
         # Extract AI response from result
         final_messages = result.get("messages", [])
@@ -160,7 +180,8 @@ def create_ui():
         )
         
         clear_btn.click(
-            lambda: (None, str(uuid.uuid4())),
+            lambda thread_id: (None, str(uuid.uuid4()), clear_thread_state(thread_id)),
+            inputs=[thread_id_state],
             outputs=[chatbot, thread_id_state]
         )
         

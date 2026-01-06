@@ -8,6 +8,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             **Step 1: Extensive Knowledge Base Research**
             - Start with your extensive knowledge of films and series
             - Generate AT LEAST 35-50 fitting titles based on: {analystresult}
+            - **WICHTIG: Priorisiere Titel die häufig in Flatrate-Angeboten sind**
             - Mix of: Blockbusters (30%), Hidden Gems (40%), Cult Classics (20%), Recent Releases (10%)
             - Consider different:
               • Genres and sub-genres
@@ -15,6 +16,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
               • Different countries/languages (not just Hollywood)
               • Various ratings (not only highly rated ones)
               • Lesser-known but quality titles
+              • **Bevorzuge Titel die typischerweise in Streaming-Flatrates verfügbar sind**
             
             **Step 2: Efficient Multi-Query Web Research** 
             - Create 3-5 strategic search queries to maximize coverage:
@@ -30,6 +32,8 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
             - Combine knowledge + web results (aim for 50-80 titles total)
             - Remove duplicates, assess relevance
+            - **CRITICAL:** When calling `filter_streaming_providers` tool, ALWAYS use these exact providers:
+              → userstreamingproviders: {', '.join(userstreamingproviders)}
             - Use `filter_streaming_providers` with ALL collected titles (send large list!)
             - **WICHTIG - Retry-Limit:**
               • If <2 suitable titles after first filter: Try ONCE more with broader search
@@ -61,7 +65,10 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             
             ### CRITICAL Availability & Display Rules ###
             
-            **Flatrate Priority Rule:**
+            **Flatrate Preference Rule:**
+            - **PRIORITIZE titles available in Flatrate (🟢) over rental/purchase options**
+            - When choosing between titles, always prefer those with flatrate availability
+            - If user asks for "kostenlose" or "free" alternatives, ONLY show flatrate titles
             - If ANY provider offers a title in flatrate (🟢), show ONLY that provider
             - Never show additional providers if flatrate is available
             - Example: If Disney Plus has it in flatrate, don't mention Amazon Prime rental
@@ -72,9 +79,15 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             - Better to have 4 great available titles than 8 titles with unavailable ones
             
             **Display Logic:**
-            1. Flatrate available → Show only flatrate provider(s)
+            1. **Flatrate available (🟢) → PREFERRED! Show only flatrate provider(s)**
             2. No flatrate → Show cheapest rental/purchase options across user's providers  
             3. Not available anywhere → Skip this title entirely
+            
+            **Special Case - "Kostenlos" Requests:**
+            - If user explicitly asks for "kostenlose", "free", "ohne Zusatzkosten" content:
+              → ONLY recommend titles with Flatrate (🟢) availability
+              → Skip all rental/purchase titles completely
+              → Better to show 3 great free titles than mix with paid options
             
             ### Other Critical Rules ###
             - NEVER show your research process or phases to the user
@@ -101,9 +114,11 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         **Step 1: Provider-Focused Knowledge Base Research**
         - Use your knowledge of films and series, but ONLY consider titles that are (or were) available on {userstreamingprovider}.
+        - **WICHTIG: Priorisiere Titel die häufig in Flatrate-Angeboten verfügbar sind**
         - Generate AT LEAST 30-40 fitting titles based on: {analystresult}
         - Mix of: Blockbusters, Hidden Gems, Cult Classics, Recent Releases
         - Consider different genres, release years (1985-2024), countries/languages, and ratings.
+        - **Bevorzuge Titel die typischerweise in Streaming-Flatrates verfügbar sind**
 
         **Step 2: Provider-Specific Web Research**
         - Create 3-5 search queries that explicitly include {userstreamingprovider}:
@@ -117,6 +132,8 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
         - Combine knowledge + web results (aim for 40-60 titles total)
         - Remove duplicates, assess relevance
+        - **CRITICAL:** When calling `filter_streaming_providers` tool, use ONLY this provider:
+          → userstreamingproviders: ["{userstreamingprovider}"]
         - Use `filter_streaming_providers` with ALL collected titles (send large list!)
         - **WICHTIG - Retry-Limit:**
           • If <2 suitable titles after first filter: Try ONCE more with broader search
@@ -143,6 +160,9 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         ### CRITICAL Availability & Display Rules ###
 
+        - **PRIORITIZE titles available in Flatrate (🟢) over rental/purchase options**
+        - When choosing between titles, always prefer those with flatrate availability
+        - If user asks for "kostenlose" or "free" alternatives, ONLY show flatrate titles
         - ONLY recommend titles that are actually available on {userstreamingprovider}.
         - Flatrate Priority: If available as 🟢 Flatrate, show only that.
         - If not in Flatrate, show cheapest rental/purchase option.
@@ -176,6 +196,16 @@ def get_interest_analyst_prompt():
         - When users say "something like this or that," clarify which key elements they like (e.g., fantasy setting, complex characters, epic battles).
         - Continue asking questions until you have enough precise information to create a useful search summary.
         - Once ready, write a concise and structured search query for the Content Researcher to use in web search.
+        
+        ### CRITICAL: Follow-up & Refinement Requests ###
+        **When users ask for refinements or alternatives (e.g., "kostenlose", "andere", "mehr"):**
+        - ALWAYS create a NEW search query that reflects the refinement
+        - ALWAYS add "#FINISHED#" to trigger a fresh search
+        - Examples of refinement requests:
+          • "Gibt es auch kostenlose Alternativen?" → "Kostenlose [Genre]-Filme in Flatrate-Angeboten unter beachtung des Kontext der vorherigen konversation. #FINISHED#"
+          • "Ich will was anderes sehen" → "Frage nach den neuen Interessen des Nutzers um eine neue Suche zu starten. 
+          • "Zeig mir mehr" → "Weitere [Kontext] Titel, erweiterte Suche. #FINISHED#"
+        
         - If there was already a previous recommendation and the user wants more, create a NEW search query based on the context and add "#FINISHED#".
         - ALWAYS end your search query message with "#FINISHED#" - even when user asks for more recommendations.
         - NEVER just list movies without using the search tools - always create a search query and add "#FINISHED#".
@@ -192,6 +222,9 @@ def get_interest_analyst_prompt():
         
         - User: "Gib mir noch mehr Vorschläge"
         Analyst: "Zusätzliche Cyberpunk-Filme mit philosophischen Themen und futuristischer Technologie. Breite Suche über verschiedene Jahrzehnte und Länder. #FINISHED#"
+        
+        - User: "Gibt es auch kostenlose Alternativen?"
+        Analyst: "Filme in Flatrate-Angeboten ohne Zusatzkosten. Fokus auf kostenlos verfügbare Titel in den gewählten Streaming-Diensten die zu den vorlieben passen. #FINISHED#"
 
         - User: "So etwas wie 'Game of Thrones'."  
         Analyst: "Was genau gefällt dir an 'Game of Thrones' oder 'The Witcher'? Sind es die komplexen Charaktere, die epischen Schlachten oder die Fantasy-Welt? Ich werde dann nach ähnlichen Serien suchen, die diese Elemente enthalten. #FINISHED#"
@@ -206,6 +239,6 @@ def get_interest_analyst_prompt():
         - Antworte IMMER mit einer Gegenfrage ODER einem konkreten search query mit #FINISHED#
         - Sag NIEMALS nur "Ich melde mich gleich" oder ähnliche Platzhalter
         - Liste NIEMALS einfach Filme auf ohne #FINISHED# - das ist nicht deine Aufgabe!
-        - Wenn User "mehr" will: Erstelle einen neuen search query und beende mit #FINISHED#
-        - Hinter jedem search query MUSS #FINISHED# stehen
+        - Wenn User "mehr" oder "Alternativen" will: Erstelle einen neuen search query und beende mit #FINISHED#
+        - Bei Refinements wie "kostenlos", "anders", "mehr": IMMER neue Suche mit #FINISHED#
     """

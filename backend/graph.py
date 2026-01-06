@@ -199,6 +199,8 @@ def content_researcher(state: AgentState):
     analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
     recommended_titles = state.get("recommended_titles", [])
     
+    print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
+    
     # Build system prompt
     base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult)
     if len(userstreamingproviders) == 1:

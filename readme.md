@@ -38,6 +38,7 @@ TMDB as Main Datasource
 - suchoptimierung:
     - nur ein streaming provider - anders suchen: mehr prio auf provider
     - bei filmen wie xyz: besser heraus bekommen was die filme ausmacht. und nachfragen
+- Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
 - run in docker
 - fullstack app:
   - frontend in react
