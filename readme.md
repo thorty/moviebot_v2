@@ -32,11 +32,21 @@ TMDB as Main Datasource
 
 ## todos
 
-- nur ein streaming provider - anders suchen: mehr prio auf provider
+- suchoptimierung:
+    - nur ein streaming provider - anders suchen: mehr prio auf provider
+    - bei filmen wie xyz: besser heraus bekommen was die filme ausmacht. und nachfragen
 - run in docker
+- fullstack app:
+  - frontend in react
+  - frontend for streaming provider selection
+  - backend with fastapi
+- botlogik:
+    - streamingprovidersuche (werstreamtes)
+- direktlinks zu streamingprovider
 
 ### ideen
-- playlisten erstellen
+- playlisten erstellen 
+- multiuser / login mit playlisten
 
 ### backend
 

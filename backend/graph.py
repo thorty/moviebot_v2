@@ -7,7 +7,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
-from backend.prompts import get_interest_analyst_prompt, get_content_researcher_prompt
+from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt
 from langchain_openai import AzureChatOpenAI
 from backend.tools import get_all_tools
 from langchain_core.messages import SystemMessage, AIMessage
@@ -201,6 +201,8 @@ def content_researcher(state: AgentState):
     
     # Build system prompt
     base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult)
+    if len(userstreamingproviders) == 1:
+        base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult)
     
     # Add duplicate prevention if previous recommendations exist
     if recommended_titles:
