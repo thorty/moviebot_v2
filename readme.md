@@ -27,8 +27,11 @@ TMDB as Main Datasource
 - Shorttermmemory
 
 ## bugs
--  fallback does not work ✅ 
+- fallback does not work ✅ 
+- fallowup frage: und umsonst? - schlechte antwort
 
+## testing
+- provider ändern?
 
 ## todos
 
