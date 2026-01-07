@@ -35,9 +35,9 @@ TMDB as Main Datasource
 
 ## todos
 
-- suchoptimierung:
-    - nur ein streaming provider - anders suchen: mehr prio auf provider
-    - bei filmen wie xyz: besser heraus bekommen was die filme ausmacht. und nachfragen
+- suche optimieren / Retrieval
+- tool erweitern für serien oder filme als filterkriterium
+- filterkriterium für paymenttype hinzufügen
 - Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
 - run in docker
 - fullstack app:
