@@ -1,6 +1,8 @@
 
 import sys, os
+from typing import Any, Dict
 from bs4 import BeautifulSoup
+from tavily import TavilyClient
 from dotenv import load_dotenv
 from duckduckgo_search import DDGS
 from langchain_core.tools import tool
@@ -106,6 +108,25 @@ def internet_search_DDGO(query: str) -> str:
     results = [r for r in ddgs.text(query, max_results=5)]
     return results if results else "No results found."
 
+@tool("internet_search_tavily", return_direct=False)
+def internet_search_tavily(query: str) -> Dict[str, Any]:
+    """Searches the internet using Tavily API.
+    
+    Args:
+        query (str): The search query.
+    
+    Returns:
+        The search results from Tavily API to be processed further by llm model
+    """
+    
+    client = TavilyClient(api_key=TAVILY_API_KEY)
+    response = client.search(
+        query=query,
+        search_depth="advanced",
+        country="germany"
+    )
+    return response
+
 
 def get_search_tools():
     return [internet_search_serper, process_content]   # Uncomment this and comment the line below to use Tavily instead of DuckDuckGo Search. 
@@ -116,7 +137,8 @@ def get_streamingprovider_tools():
 
 def get_all_tools():
     """Returns all available tools."""
-    return [internet_search_serper, process_content, filter_streaming_providers]  # Add more tools as needed.
+    #return [internet_search_serper, process_content, filter_streaming_providers]  # Add more tools as needed.
+    return [internet_search_tavily, filter_streaming_providers]  # Add more tools as needed.
 
 
 
