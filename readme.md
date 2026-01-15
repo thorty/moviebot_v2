@@ -6,7 +6,7 @@ Prototype for a LLM based recommendation system for movies and series.
 
 ## Technologie
 langgraph
-chainlit as frontend (prototype)
+gradio as frontend
 
 ## APIs
 LLM: OpenAI GPT4

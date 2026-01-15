@@ -11,7 +11,50 @@ from backend.states import AgentState
 from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt
 from langchain_openai import AzureChatOpenAI
 from backend.tools import get_all_tools
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, AIMessage    
+from openai import AzureOpenAI  
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+
+def initialize_model():
+    """
+    Initialize Azure OpenAI model once.
+    Called during graph creation to avoid repeated initialization.
+    """
+
+    # Initialize our LLM
+    #model = AzureChatOpenAI(   
+    #    api_key= os.getenv("AZURE_API_KEY"),
+    #    api_version="2025-01-01-preview",
+    #    temperature=0.3,
+    #    model="GPT4-UK",        
+    #    azure_endpoint=os.getenv("AZURE_API_BASE")        
+    #)
+    
+    
+    endpoint = os.getenv("AZURE_ENDPOINT_URL", "https://gpt4-se-dev.openai.azure.com/")
+    model_name = os.getenv("AZURE_DEPLOYMENT_NAME", "GPT-4o")
+    api_version = os.getenv("AZURE_API_VERSION", "2025-01-01-preview")
+
+    token_provider = get_bearer_token_provider(
+        DefaultAzureCredential(), 
+        "https://cognitiveservices.azure.com/.default"
+    )
+
+    model = AzureChatOpenAI(
+        model=model_name,
+        api_version=api_version,
+        azure_endpoint=endpoint,
+        temperature=0.3,
+        azure_ad_token_provider=token_provider
+    )
+    
+    print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
+    return model
+
 
 def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     """
@@ -54,7 +97,7 @@ def result_validator(state: AgentState):
     - Content found: SUCCESS → END
     - #NO_RESULTS# signal: FALLBACK → fallback_response
     """
-    log_state("result_validator", dict(state), "ENTRY")
+    #log_state("result_validator", dict(state), "ENTRY")
     
     found_titles = state.get("found_titles", [])
     found_titles_count = len(found_titles)
@@ -72,7 +115,7 @@ def result_validator(state: AgentState):
             "validation_status": "max_retries",
             "next_agent": "fallback_response"
         }
-        log_state("result_validator", {**state, **result}, "EXIT")
+        #log_state("result_validator", {**state, **result}, "EXIT")
         return result
     
     # Success: Found titles
@@ -82,7 +125,7 @@ def result_validator(state: AgentState):
             "validation_status": "success",
             "next_agent": "__END__"
         }
-        log_state("result_validator", {**state, **result}, "EXIT")
+        ##log_state("result_validator", {**state, **result}, "EXIT")
         return result
     
     # Should not happen, but fallback just in case
@@ -91,7 +134,7 @@ def result_validator(state: AgentState):
         "validation_status": "success",
         "next_agent": "__END__"
     }
-    log_state("result_validator", {**state, **result}, "EXIT")
+    #log_state("result_validator", {**state, **result}, "EXIT")
     return result
 
 def fallback_response(state: AgentState):
@@ -99,7 +142,7 @@ def fallback_response(state: AgentState):
     Generates a helpful fallback response when no suitable content was found
     after maximum retry attempts.
     """
-    log_state("fallback_response", dict(state), "ENTRY")
+    #log_state("fallback_response", dict(state), "ENTRY")
     
     userstreamingproviders = state.get("userstreamingproviders", [])
     
@@ -124,7 +167,7 @@ Was möchtest du tun?"""
         "next_agent": "__END__"
     }
     
-    log_state("fallback_response", {**state, **result}, "EXIT")
+    #log_state("fallback_response", {**state, **result}, "EXIT")
     return result
 
 def analyst_output_validator(state: AgentState):
@@ -132,12 +175,12 @@ def analyst_output_validator(state: AgentState):
     Validates that interest_analyst followed the rules and didn't recommend movies directly.
     If rules were broken, overrides behavior and forces routing to content_researcher.
     """
-    log_state("analyst_output_validator", dict(state), "ENTRY")
+    #log_state("analyst_output_validator", dict(state), "ENTRY")
     
     # Get last message from analyst
     if not state.get("messages"):
         result = {"next_agent": state.get("next_agent", "__END__")}
-        log_state("analyst_output_validator", {**state, **result}, "EXIT")
+        #log_state("analyst_output_validator", {**state, **result}, "EXIT")
         return result
     
     last_message = state["messages"][-1]
@@ -205,103 +248,91 @@ def analyst_output_validator(state: AgentState):
             "validation_status": "override"  # Mark that we overrode
         }
         
-        log_state("analyst_output_validator", {**state, **result}, "EXIT")
+        #log_state("analyst_output_validator", {**state, **result}, "EXIT")
         return result
     
     # No violation - pass through normally
     print("[VALIDATOR] ✓ Analyst output looks valid")
     result = {"next_agent": state.get("next_agent", "__END__")}
     
-    log_state("analyst_output_validator", {**state, **result}, "EXIT")
+    #log_state("analyst_output_validator", {**state, **result}, "EXIT")
     return result
 
-def interest_analyst(state: AgentState):
-    log_state("interest_analyst", dict(state), "ENTRY")
-    
-    # Initialize our LLM
-    model = AzureChatOpenAI(   
-        api_key= os.getenv("AZURE_API_KEY"),
-        api_version="2025-01-01-preview",
-        temperature=0.3,
-        model="GPT4-UK",        
-        azure_endpoint=os.getenv("AZURE_API_BASE")
+def create_interest_analyst(model):
+    """Factory function to create interest_analyst node with model closure."""
+    def interest_analyst(state: AgentState):
+        #log_state("interest_analyst", dict(state), "ENTRY")
         
-    )
-  
-    sys_msg = SystemMessage(content=get_interest_analyst_prompt())
-    
-    response = model.invoke([sys_msg] + state["messages"])          
-    response_text = response.content.lower() if isinstance(response.content, str) else str(response.content).lower()
-    is_finished = "#finished#" in response_text
-    
-    if is_finished:
-        # Interest Analyst ist bereit - remove #FINISHED# from content before sending
-        original_content = response.content if isinstance(response.content, str) else str(response.content)
-        cleaned_response_text = original_content.replace("#FINISHED#", "").replace("#finished#", "").strip()
+        sys_msg = SystemMessage(content=get_interest_analyst_prompt())
         
-        # Create clean message without #FINISHED# tag
-        clean_response = AIMessage(content=cleaned_response_text)
+        response = model.invoke([sys_msg] + state["messages"])          
+        response_text = response.content.lower() if isinstance(response.content, str) else str(response.content).lower()
+        is_finished = "#finished#" in response_text
         
-        # Reset state for new search cycle
-        result = {
-            "messages": [clean_response],  # Send cleaned message to user
-            "next_agent": "content_researcher", 
-            "analystresult": cleaned_response_text.lower(),
-            "control_signal": "",  # Reset
-            "validation_status": "pending",  # Reset
-            "last_filter_results": {}  # Reset
-        }
-        log_state("interest_analyst", {**state, **result}, "EXIT")
-        return result
-    else:
-        # Interest Analyst hat eine Frage - wird normal angezeigt
-        result = {
-            "messages": [response],  # Normale Anzeige
-            "analystresult": response_text, 
-            "next_agent": "__END__"
-        }
-        log_state("interest_analyst", {**state, **result}, "EXIT")
-        return result
+        if is_finished:
+            # Interest Analyst ist bereit - remove #FINISHED# from content before sending
+            original_content = response.content if isinstance(response.content, str) else str(response.content)
+            cleaned_response_text = original_content.replace("#FINISHED#", "").replace("#finished#", "").strip()
+            
+            # Create clean message without #FINISHED# tag
+            clean_response = AIMessage(content=cleaned_response_text)
+            
+            # Reset state for new search cycle
+            result = {
+                "messages": [clean_response],  # Send cleaned message to user
+                "next_agent": "content_researcher", 
+                "analystresult": cleaned_response_text.lower(),
+                "control_signal": "",  # Reset
+                "validation_status": "pending",  # Reset
+                "last_filter_results": {}  # Reset
+            }
+            #log_state("interest_analyst", {**state, **result}, "EXIT")
+            return result
+        else:
+            # Interest Analyst hat eine Frage - wird normal angezeigt
+            result = {
+                "messages": [response],  # Normale Anzeige
+                "analystresult": response_text, 
+                "next_agent": "__END__"
+            }
+            #log_state("interest_analyst", {**state, **result}, "EXIT")
+            return result
+    
+    return interest_analyst
     
 
-def content_researcher(state: AgentState):
-    """
-    Content researcher with LLM-managed internal retry logic.
-    LLM will make up to 3 attempts internally and send #NO_RESULTS# if unsuccessful.
-    """
-    # Only log on first entry (when no found_titles exist yet)
-    found_titles = state.get("found_titles", [])
-    is_first_call = len(found_titles) == 0
-    
-    if is_first_call:
-        log_state("content_researcher", dict(state), "ENTRY")
-    
-    # Initialize our LLM
-    model = AzureChatOpenAI(   
-        api_key= os.getenv("AZURE_API_KEY"),
-        api_version="2025-01-01-preview",
-        temperature=0.3,
-        model="GPT4-UK",        
-        azure_endpoint=os.getenv("AZURE_API_BASE")
-    )
-    tools = get_all_tools()
-    model_with_searchtools = model.bind_tools(tools)    
+def create_content_researcher(model):
+    """Factory function to create content_researcher node with model closure."""
+    def content_researcher(state: AgentState):
+        """
+        Content researcher with LLM-managed internal retry logic.
+        LLM will make up to 3 attempts internally and send #NO_RESULTS# if unsuccessful.
+        """
+        # Only log on first entry (when no found_titles exist yet)
+        found_titles = state.get("found_titles", [])
+        is_first_call = len(found_titles) == 0
+        
+        #if is_first_call:
+            #log_state("content_researcher", dict(state), "ENTRY")
+           
+        tools = get_all_tools()
+        model_with_searchtools = model.bind_tools(tools)    
 
-    default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
-    userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
-    analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
-    found_titles = state.get("found_titles", [])
-    
-    print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
-    
-    # Build system prompt
-    base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult)
-    if len(userstreamingproviders) == 1:
-        base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult)
-    
-    # Add blacklist to prevent duplicates
-    if found_titles:
-        blacklist_note = f"""
+        default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
+        userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
+        analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
+        found_titles = state.get("found_titles", [])
+        
+        print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
+        
+        # Build system prompt
+        base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult)
+        if len(userstreamingproviders) == 1:
+            base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult)
+        
+        # Add blacklist to prevent duplicates
+        if found_titles:
+            blacklist_note = f"""
         
         **WICHTIG - Blacklist (bereits genutzte Titel):**
         Diese Titel wurden bereits verwendet und dürfen NICHT nochmal vorgeschlagen werden:
@@ -309,36 +340,38 @@ def content_researcher(state: AgentState):
         
         Suche nach NEUEN, ANDEREN Titeln die noch nicht genannt wurden!
         """
-        base_prompt += blacklist_note
+            base_prompt += blacklist_note
+        
+        sys_msg = SystemMessage(content=base_prompt)
+        response = model_with_searchtools.invoke([sys_msg] + state["messages"])
+        
+        # Check for #NO_RESULTS# signal
+        if hasattr(response, 'content') and isinstance(response.content, str):
+            if "#NO_RESULTS#" in response.content or "#no_results#" in response.content.lower():
+                print("[CONTENT_RESEARCHER] LLM sent #NO_RESULTS# signal after 3 attempts")
+                # Set control signal in state (not in messages)
+                result = {
+                    "control_signal": "no_results"  # Internal signal for validator
+                }
+                #log_state("content_researcher", {**state, **result}, "EXIT")
+                return result
+        
+        # Normal flow - keep existing found_titles_count from tool_node
+        # Only return messages, other state values are preserved by LangGraph
+        result = {
+            "messages": [response]
+        }
+        
+        #log_state("content_researcher", {**state, **result}, "EXIT")
+        return result
     
-    sys_msg = SystemMessage(content=base_prompt)
-    response = model_with_searchtools.invoke([sys_msg] + state["messages"])
-    
-    # Check for #NO_RESULTS# signal
-    if hasattr(response, 'content') and isinstance(response.content, str):
-        if "#NO_RESULTS#" in response.content or "#no_results#" in response.content.lower():
-            print("[CONTENT_RESEARCHER] LLM sent #NO_RESULTS# signal after 3 attempts")
-            # Set control signal in state (not in messages)
-            result = {
-                "control_signal": "no_results"  # Internal signal for validator
-            }
-            log_state("content_researcher", {**state, **result}, "EXIT")
-            return result
-    
-    # Normal flow - keep existing found_titles_count from tool_node
-    # Only return messages, other state values are preserved by LangGraph
-    result = {
-        "messages": [response]
-    }
-    
-    log_state("content_researcher", {**state, **result}, "EXIT")
-    return result
+    return content_researcher
 
 def tool_node_with_state_tracking(state: AgentState):
     """
     Custom tool node that tracks filter_streaming_providers results in state.
     """
-    log_state("tool_node", dict(state), "ENTRY")
+    #log_state("tool_node", dict(state), "ENTRY")
     
     tools = get_all_tools()
     tool_node = ToolNode(tools)
@@ -393,19 +426,22 @@ def tool_node_with_state_tracking(state: AgentState):
                     import traceback
                     traceback.print_exc()
     
-    log_state("tool_node", {**state, **result}, "EXIT")
+    #log_state("tool_node", {**state, **result}, "EXIT")
     return result
 
 def create_graph():
     
     dotenv.load_dotenv(dotenv_path=".env", override=True)
     
+    # Initialize model ONCE for the entire graph
+    model = initialize_model()
+    
     workflow = StateGraph(AgentState)
 
-    # Nodes hinzufügen
-    workflow.add_node("interest_analyst", interest_analyst)
+    # Create nodes with model closure (no re-initialization)
+    workflow.add_node("interest_analyst", create_interest_analyst(model))
     workflow.add_node("analyst_output_validator", analyst_output_validator)
-    workflow.add_node("content_researcher", content_researcher)
+    workflow.add_node("content_researcher", create_content_researcher(model))
     workflow.add_node("tools", tool_node_with_state_tracking)
     workflow.add_node("result_validator", result_validator)
     workflow.add_node("fallback_response", fallback_response)
