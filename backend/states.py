@@ -40,7 +40,7 @@ class AgentState(TypedDict):
     # Validation and results tracking
     last_filter_results: dict  # Results from filter_streaming_providers tool
     validation_status: str  # "success" | "max_retries" | "pending"
-    recommended_titles: list[str]  # Titles recommended to user (source of truth for count)
+    found_titles: list[str]  # Blacklist: All titles already found/used (prevents duplicates)
     
     # remaining_steps: Used by LangGraph to track the number of allowed steps 
     # to prevent infinite loops in cyclic graphs.

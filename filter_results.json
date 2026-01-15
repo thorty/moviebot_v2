@@ -1,0 +1,93 @@
+{
+  "available_titles": [
+    {
+      "title": "Tron",
+      "flatproviders": [
+        "Disney Plus"
+      ],
+      "rentproviders": [
+        "Apple TV",
+        "Amazon Video",
+        "Google Play Movies",
+        "YouTube",
+        "Sky Store",
+        "Rakuten TV",
+        "maxdome Store",
+        "MagentaTV",
+        "Videoload",
+        "Freenet meinVOD"
+      ],
+      "overview": "Der Programmierer und Spieleentwickler Kevin Flynn wurde um seine Arbeit betrogen und gefeuert. Versuche, Beweise dafür im Hauptcomputer seiner ehemaligen Firma zu beschaffen, blieben bislang erfolglos, aber nicht unentdeckt. Ein letzter Versuch an Beweise zu kommen ist ein Computer-Hack aus dem Inneren der Firma. Das ist aber nur mit Hilfe von seiner Ex-Freundin Lora und ihrem jetzigen Freund Alan möglich. Es geschieht das Unglaubliche: Das MCP (Master Control Programm) wehrt sich und entführt Flynn in eine Welt aus Bits und Bytes. Unerwartet trifft Flynn hier alte Feinde aber auch auf neue Freunde.",
+      "release_date": "1982-07-09",
+      "id": 97
+    },
+    {
+      "title": "TRON: Legacy",
+      "flatproviders": [
+        "Disney Plus"
+      ],
+      "rentproviders": [
+        "Apple TV",
+        "Amazon Video",
+        "Google Play Movies",
+        "YouTube",
+        "Sky Store",
+        "Rakuten TV",
+        "maxdome Store",
+        "MagentaTV",
+        "Videoload",
+        "Freenet meinVOD"
+      ],
+      "overview": "21 Jahre nach dem mysteriösen Verschwinden seines Vaters folgt Sam Flynn dem Lockruf eines Pagersignals und wird in die digitale Computerwelt des \"Grid\" hineingezogen. Dort hat Clu, das einst von seinem Vater geschaffene Programm, die Macht übernommen, dort verstecken sich auch Kevin Flynn und sein Protegé, das Programm Quorra. Nachdem Vater und Sohn sich wiedergefunden haben, verfolgen sie nur ein Ziel, wollen das Grid verlassen. Doch genau das will auch Clu, um seine Diktatur auf die Welt der User auszudehnen.",
+      "release_date": "2010-12-14",
+      "id": 20526
+    }
+  ],
+  "unavailable_titles": [],
+  "total_checked": 3,
+  "found_count": 2,
+  "raw_results": [
+    {
+      "title": "Tron",
+      "flatproviders": [
+        "Disney Plus"
+      ],
+      "rentproviders": [
+        "Apple TV",
+        "Amazon Video",
+        "Google Play Movies",
+        "YouTube",
+        "Sky Store",
+        "Rakuten TV",
+        "maxdome Store",
+        "MagentaTV",
+        "Videoload",
+        "Freenet meinVOD"
+      ],
+      "overview": "Der Programmierer und Spieleentwickler Kevin Flynn wurde um seine Arbeit betrogen und gefeuert. Versuche, Beweise dafür im Hauptcomputer seiner ehemaligen Firma zu beschaffen, blieben bislang erfolglos, aber nicht unentdeckt. Ein letzter Versuch an Beweise zu kommen ist ein Computer-Hack aus dem Inneren der Firma. Das ist aber nur mit Hilfe von seiner Ex-Freundin Lora und ihrem jetzigen Freund Alan möglich. Es geschieht das Unglaubliche: Das MCP (Master Control Programm) wehrt sich und entführt Flynn in eine Welt aus Bits und Bytes. Unerwartet trifft Flynn hier alte Feinde aber auch auf neue Freunde.",
+      "release_date": "1982-07-09",
+      "id": 97
+    },
+    {
+      "title": "TRON: Legacy",
+      "flatproviders": [
+        "Disney Plus"
+      ],
+      "rentproviders": [
+        "Apple TV",
+        "Amazon Video",
+        "Google Play Movies",
+        "YouTube",
+        "Sky Store",
+        "Rakuten TV",
+        "maxdome Store",
+        "MagentaTV",
+        "Videoload",
+        "Freenet meinVOD"
+      ],
+      "overview": "21 Jahre nach dem mysteriösen Verschwinden seines Vaters folgt Sam Flynn dem Lockruf eines Pagersignals und wird in die digitale Computerwelt des \"Grid\" hineingezogen. Dort hat Clu, das einst von seinem Vater geschaffene Programm, die Macht übernommen, dort verstecken sich auch Kevin Flynn und sein Protegé, das Programm Quorra. Nachdem Vater und Sohn sich wiedergefunden haben, verfolgen sie nur ein Ziel, wollen das Grid verlassen. Doch genau das will auch Clu, um seine Diktatur auf die Welt der User auszudehnen.",
+      "release_date": "2010-12-14",
+      "id": 20526
+    }
+  ]
+}

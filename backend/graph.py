@@ -26,16 +26,15 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     print(f"{'='*80}")
     
     # Log relevant state fields (excluding messages for brevity)
-    recommended_titles = state.get("recommended_titles", [])
+    found_titles = state.get("found_titles", [])
     state_summary = {
         "userstreamingproviders": state.get("userstreamingproviders", []),
         "analystresult": state.get("analystresult", "")[:100] + "..." if state.get("analystresult", "") else "",
         "next_agent": state.get("next_agent", ""),
         "control_signal": state.get("control_signal", ""),
-        "found_titles_count": len(recommended_titles),  # Calculated from recommended_titles
+        "found_titles_count": len(found_titles),
         "validation_status": state.get("validation_status", ""),
-        "recommended_titles_count": len(recommended_titles),
-        "recommended_titles": recommended_titles,
+        "found_titles": found_titles,
         "last_filter_results": {
             "found_count": state.get("last_filter_results", {}).get("found_count", 0)
         } if state.get("last_filter_results") else {},
@@ -56,8 +55,8 @@ def result_validator(state: AgentState):
     """
     log_state("result_validator", dict(state), "ENTRY")
     
-    recommended_titles = state.get("recommended_titles", [])
-    found_titles_count = len(recommended_titles)  # Use actual list length as source of truth
+    found_titles = state.get("found_titles", [])
+    found_titles_count = len(found_titles)
     
     # Check control_signal (internal state, not in messages)
     control_signal = state.get("control_signal", "")
@@ -181,7 +180,12 @@ def content_researcher(state: AgentState):
     Content researcher with LLM-managed internal retry logic.
     LLM will make up to 3 attempts internally and send #NO_RESULTS# if unsuccessful.
     """
-    log_state("content_researcher", dict(state), "ENTRY")
+    # Only log on first entry (when no found_titles exist yet)
+    found_titles = state.get("found_titles", [])
+    is_first_call = len(found_titles) == 0
+    
+    if is_first_call:
+        log_state("content_researcher", dict(state), "ENTRY")
     
     # Initialize our LLM
     model = AzureChatOpenAI(   
@@ -197,7 +201,7 @@ def content_researcher(state: AgentState):
     default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
     userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
     analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
-    recommended_titles = state.get("recommended_titles", [])
+    found_titles = state.get("found_titles", [])
     
     print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
     
@@ -206,17 +210,17 @@ def content_researcher(state: AgentState):
     if len(userstreamingproviders) == 1:
         base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult)
     
-    # Add duplicate prevention if previous recommendations exist
-    if recommended_titles:
-        duplicate_prevention = f"""
+    # Add blacklist to prevent duplicates
+    if found_titles:
+        blacklist_note = f"""
         
-        **WICHTIG - Duplikat-Vermeidung:**
-        Die folgenden Titel wurden bereits empfohlen und dürfen NICHT nochmal vorgeschlagen werden:
-        {', '.join(recommended_titles)}
+        **WICHTIG - Blacklist (bereits genutzte Titel):**
+        Diese Titel wurden bereits verwendet und dürfen NICHT nochmal vorgeschlagen werden:
+        {', '.join(found_titles)}
         
         Suche nach NEUEN, ANDEREN Titeln die noch nicht genannt wurden!
         """
-        base_prompt += duplicate_prevention
+        base_prompt += blacklist_note
     
     sys_msg = SystemMessage(content=base_prompt)
     response = model_with_searchtools.invoke([sys_msg] + state["messages"])
@@ -275,24 +279,24 @@ def tool_node_with_state_tracking(state: AgentState):
                         found_count = filter_results.get('found_count', 0)
                         available_titles = filter_results.get('available_titles', [])
                         
-                        # Extrahiere Titelnamen für Duplikat-Tracking
-                        new_recommended = []
+                        # Extrahiere Titelnamen für Blacklist
+                        new_found = []
                         for title_info in available_titles:
                             if isinstance(title_info, dict) and 'title' in title_info:
-                                new_recommended.append(title_info['title'])
+                                new_found.append(title_info['title'])
                         
-                        # Merge mit bereits empfohlenen Titeln (keine Duplikate)
-                        existing_recommended = state.get('recommended_titles', [])
-                        updated_recommended = list(set(existing_recommended + new_recommended))
+                        # Merge mit bereits gefundenen Titeln (keine Duplikate)
+                        existing_found = state.get('found_titles', [])
+                        updated_found = list(set(existing_found + new_found))
                         
                         print(f"[TOOL_NODE] Tracked filter results: {found_count} titles found")
-                        if new_recommended:
-                            print(f"[TOOL_NODE] New recommendations: {', '.join(new_recommended)}")
+                        if new_found:
+                            print(f"[TOOL_NODE] New titles added to blacklist: {', '.join(new_found)}")
                         
                         # Update result mit tracking info
                         result.update({
                             "last_filter_results": filter_results,
-                            "recommended_titles": updated_recommended
+                            "found_titles": updated_found
                         })
                         break
                 except Exception as e:

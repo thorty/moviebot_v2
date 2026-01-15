@@ -68,7 +68,7 @@ def chat_with_bot(message, history, selected_providers, thread_id):
         "messages": [HumanMessage(content=message)],
         "userstreamingproviders": providers,
         # Persist important state fields between requests
-        "recommended_titles": previous_result.get("recommended_titles", []),
+        "found_titles": previous_result.get("found_titles", []),
         "analystresult": previous_result.get("analystresult", "")
     }
     
@@ -79,7 +79,7 @@ def chat_with_bot(message, history, selected_providers, thread_id):
     
     print(f"[DEBUG] Using thread_id: {thread_id}")
     print(f"[DEBUG] Selected providers: {providers}")
-    print(f"[DEBUG] Persisted recommended_titles: {len(graph_input['recommended_titles'])} titles")
+    print(f"[DEBUG] Persisted found_titles (blacklist): {len(graph_input['found_titles'])} titles")
     
     try:
         # Invoke the graph
