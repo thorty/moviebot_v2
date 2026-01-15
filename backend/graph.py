@@ -2,6 +2,7 @@ import os
 import dotenv
 import time
 import json
+import re
 from typing import Any
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -124,6 +125,94 @@ Was möchtest du tun?"""
     }
     
     log_state("fallback_response", {**state, **result}, "EXIT")
+    return result
+
+def analyst_output_validator(state: AgentState):
+    """
+    Validates that interest_analyst followed the rules and didn't recommend movies directly.
+    If rules were broken, overrides behavior and forces routing to content_researcher.
+    """
+    log_state("analyst_output_validator", dict(state), "ENTRY")
+    
+    # Get last message from analyst
+    if not state.get("messages"):
+        result = {"next_agent": state.get("next_agent", "__END__")}
+        log_state("analyst_output_validator", {**state, **result}, "EXIT")
+        return result
+    
+    last_message = state["messages"][-1]
+    content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+    content_lower = content.lower()
+    
+    # Define forbidden patterns that indicate direct movie recommendations
+    forbidden_patterns = [
+        r'🟢|🟡|🔴',  # Streaming symbols
+        r'verfügbar auf',  # Availability phrases
+        r'streamen auf',
+        r'anschauen auf',
+        r'flatrate|leihen|kaufen',  # Streaming terms
+        r'\(\d{4}\)',  # Year numbers like (2020)
+        r'netflix|disney|amazon prime|hulu|hbo',  # Platform names in recommendations
+    ]
+    
+    # Check for forbidden patterns
+    rule_violation = any(re.search(pattern, content_lower) for pattern in forbidden_patterns)
+    
+    # Additional check: Does content look like a movie list?
+    # (Multiple bullet points or numbered items without #FINISHED#)
+    looks_like_movie_list = (
+        (content.count('\n-') > 2 or content.count('\n•') > 2 or content.count('\n1.') > 0)
+        and '#finished#' not in content_lower
+    )
+    
+    if rule_violation or looks_like_movie_list:
+        # VIOLATION DETECTED - Override behavior
+        print("[VALIDATOR] ⚠️  Analyst broke rules - direct movie recommendations detected!")
+        print(f"[VALIDATOR] Rule violation: {rule_violation}, Looks like list: {looks_like_movie_list}")
+        
+        # Extract the latest user input from conversation history
+        latest_user_input = ""
+        for msg in reversed(state.get("messages", [])):
+            if hasattr(msg, 'type') and msg.type == 'human':
+                latest_user_input = msg.content
+                break
+        
+        # Get previous analyst result (search query) if it exists
+        previous_query = state.get("analystresult", "")
+        
+        # Combine previous query with new user input for context-aware search
+        if previous_query and latest_user_input:
+            # User has refined their request - combine both
+            combined_query = f"{previous_query}. Zusätzliche Anforderung: {latest_user_input}"
+            print(f"[VALIDATOR] Combining previous query with new input")
+        elif previous_query:
+            # No new input, use previous query
+            combined_query = previous_query
+            print(f"[VALIDATOR] Using previous query")
+        elif latest_user_input:
+            # No previous query, use user input as base
+            combined_query = f"Suche basierend auf Nutzeranfrage: {latest_user_input}"
+            print(f"[VALIDATOR] Creating query from user input")
+        else:
+            # Fallback if nothing is available
+            combined_query = "Allgemeine Film- und Seriensuche"
+            print(f"[VALIDATOR] Using generic fallback query")
+        
+        result = {
+            "messages": [AIMessage(content="Ich starte die Suche für dich...")],
+            "next_agent": "content_researcher",
+            "analystresult": combined_query,
+            "validation_status": "override"  # Mark that we overrode
+        }
+        
+        log_state("analyst_output_validator", {**state, **result}, "EXIT")
+        return result
+    
+    # No violation - pass through normally
+    print("[VALIDATOR] ✓ Analyst output looks valid")
+    result = {"next_agent": state.get("next_agent", "__END__")}
+    
+    log_state("analyst_output_validator", {**state, **result}, "EXIT")
     return result
 
 def interest_analyst(state: AgentState):
@@ -315,6 +404,7 @@ def create_graph():
 
     # Nodes hinzufügen
     workflow.add_node("interest_analyst", interest_analyst)
+    workflow.add_node("analyst_output_validator", analyst_output_validator)
     workflow.add_node("content_researcher", content_researcher)
     workflow.add_node("tools", tool_node_with_state_tracking)
     workflow.add_node("result_validator", result_validator)
@@ -323,9 +413,12 @@ def create_graph():
     # Entry Point definieren
     workflow.set_entry_point("interest_analyst")
 
-    # Interest Analyst → Content Researcher oder END
+    # Interest Analyst → Validator (IMMER zur Validierung)
+    workflow.add_edge("interest_analyst", "analyst_output_validator")
+    
+    # Validator → Content Researcher oder END
     workflow.add_conditional_edges(
-        "interest_analyst",
+        "analyst_output_validator",
         lambda state: state.get("next_agent", "__END__"),
         {
             "content_researcher": "content_researcher",
