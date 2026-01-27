@@ -70,8 +70,6 @@ async def main(message: cl.Message):
     # Input für den Graph vorbereiten
     graph_input = {
         "messages": [HumanMessage(content=message.content)],
-        #"userstreamingproviders": ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
-        #"userstreamingproviders": ["Disney Plus", "Amazon Prime", "Apple TV+"]
         "userstreamingproviders": ["Disney Plus"]
     }
     

@@ -195,7 +195,7 @@ def analyst_output_validator(state: AgentState):
         r'anschauen auf',
         r'flatrate|leihen|kaufen',  # Streaming terms
         r'\(\d{4}\)',  # Year numbers like (2020)
-        r'netflix|disney|amazon prime|hulu|hbo',  # Platform names in recommendations
+        r'netflix|disney|amazon prime|wow',  # Platform names in recommendations
     ]
     
     # Check for forbidden patterns
@@ -318,7 +318,7 @@ def create_content_researcher(model):
         tools = get_all_tools()
         model_with_searchtools = model.bind_tools(tools)    
 
-        default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
+        default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"]
         userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
         analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
         found_titles = state.get("found_titles", [])
@@ -345,24 +345,39 @@ def create_content_researcher(model):
         sys_msg = SystemMessage(content=base_prompt)
         response = model_with_searchtools.invoke([sys_msg] + state["messages"])
         
-        # Check for #NO_RESULTS# signal
-        if hasattr(response, 'content') and isinstance(response.content, str):
-            if "#NO_RESULTS#" in response.content or "#no_results#" in response.content.lower():
-                print("[CONTENT_RESEARCHER] LLM sent #NO_RESULTS# signal after 3 attempts")
-                # Set control signal in state (not in messages)
-                result = {
-                    "control_signal": "no_results"  # Internal signal for validator
-                }
-                #log_state("content_researcher", {**state, **result}, "EXIT")
-                return result
-        
-        # Normal flow - keep existing found_titles_count from tool_node
-        # Only return messages, other state values are preserved by LangGraph
+        # ALWAYS add response to messages first (for tools_condition to work)
         result = {
             "messages": [response]
         }
         
-        #log_state("content_researcher", {**state, **result}, "EXIT")
+        # THEN check for problems and add signals if needed
+        # Check for AI Refusal (GPT-4o safety filter)
+        if hasattr(response, 'response_metadata'):
+            refusal = response.response_metadata.get('refusal')
+            if refusal:
+                print(f"[CONTENT_RESEARCHER] ⚠️  AI REFUSAL detected: {refusal}")
+                print(f"[CONTENT_RESEARCHER] Response added to messages, tools_condition will handle routing")
+                # Don't return early - let tools_condition handle the response
+        
+        # Check for empty/null content (but response might still have tool_calls)
+        if not response.content or response.content == "null":
+            print(f"[CONTENT_RESEARCHER] ⚠️  Empty response content")
+            print(f"[CONTENT_RESEARCHER] Checking if tool_calls present...")
+            if hasattr(response, 'tool_calls') and response.tool_calls:
+                print(f"[CONTENT_RESEARCHER] ✓ Tool calls present, will execute tools")
+            else:
+                print(f"[CONTENT_RESEARCHER] No tool calls, signaling no_results")
+                result["control_signal"] = "no_results"
+                return result
+        
+        # Check for #NO_RESULTS# signal
+        if hasattr(response, 'content') and isinstance(response.content, str):
+            if "#NO_RESULTS#" in response.content or "#no_results#" in response.content.lower():
+                print("[CONTENT_RESEARCHER] LLM sent #NO_RESULTS# signal after 3 attempts")
+                result["control_signal"] = "no_results"
+                return result
+        
+        # Normal flow - response already added to messages above
         return result
     
     return content_researcher

@@ -18,17 +18,7 @@ enable_langsmith()
 graph = create_graph()
 
 # Available streaming providers
-AVAILABLE_PROVIDERS = [
-    "Netflix",
-    "Disney Plus",
-    "Amazon Prime",
-    "Apple TV+",
-    "HBO Max",
-    "Hulu",
-    "MagentaTV",
-    "Joyn",
-    "Sky Ticket"
-]
+AVAILABLE_PROVIDERS = ["Netflix", "Disney Plus", "Amazon Prime", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"]
 
 # Global state to store last result for state persistence
 last_result_store = {}

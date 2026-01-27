@@ -28,15 +28,15 @@ TMDB as Main Datasource
 
 ## bugs
 - fallback does not work ✅ 
-- fallowup frage: und umsonst? - schlechte antwort
+- fallowup frage: und umsonst? - schlechte antwort ✅ 
 
 ## testing
 - provider ändern?
 
 ## todos
 
-- suche optimieren / Retrieval
 - tool erweitern für serien oder filme als filterkriterium
+- suche optimieren / Retrieval
 - filterkriterium für paymenttype hinzufügen
 - Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
 - run in docker
