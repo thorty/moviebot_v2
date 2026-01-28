@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 
 from backend.graph import create_graph
 from backend.utils.setupenv import enable_langsmith
-from backend.utils.tmdb.common import Provider
+from backend.utils.tmdb.common import PaymentTypes
+from common import UserStreamingProvider    
 
 
 load_dotenv()
@@ -19,7 +20,9 @@ enable_langsmith()
 graph = create_graph()
 
 # Available streaming providers
-AVAILABLE_PROVIDERS = [provider.value for provider in Provider]
+AVAILABLE_PROVIDERS = [provider.value for provider in UserStreamingProvider]
+PAYMENT_TYPES = [payment.value for payment in PaymentTypes]  # Currently supported payment types
+
 
 # Global state to store last result for state persistence
 last_result_store = {}
@@ -32,7 +35,7 @@ def clear_thread_state(thread_id):
     return None
 
 
-def chat_with_bot(message, history, selected_providers, thread_id):
+def chat_with_bot(message, history, selected_providers, only_free, thread_id):
     """
     Handle chat interaction with the MovieBot.
     
@@ -40,6 +43,7 @@ def chat_with_bot(message, history, selected_providers, thread_id):
         message: User's input message
         history: Chat history in Gradio format [(user_msg, bot_msg), ...]
         selected_providers: List of selected streaming providers
+        only_free: Boolean indicating if only free content should be shown
         thread_id: Unique session ID
     
     Returns:
@@ -51,6 +55,9 @@ def chat_with_bot(message, history, selected_providers, thread_id):
     # Use selected providers or default to Disney Plus
     providers = selected_providers if selected_providers else AVAILABLE_PROVIDERS
     
+    # Determine payment types based on "only free" selection
+    payment_types = ["free"] if only_free else PAYMENT_TYPES
+    
     # Retrieve previous state for persistence
     previous_result = last_result_store.get(thread_id, {})
     
@@ -58,6 +65,7 @@ def chat_with_bot(message, history, selected_providers, thread_id):
     graph_input = {
         "messages": [HumanMessage(content=message)],
         "userstreamingproviders": providers,
+        "paymenttypes": payment_types,
         # Persist important state fields between requests
         "found_titles": previous_result.get("found_titles", []),
         "analystresult": previous_result.get("analystresult", "")
@@ -70,6 +78,7 @@ def chat_with_bot(message, history, selected_providers, thread_id):
     
     print(f"[DEBUG] Using thread_id: {thread_id}")
     print(f"[DEBUG] Selected providers: {providers}")
+    print(f"[DEBUG] Selected payment types: {payment_types}")
     print(f"[DEBUG] Persisted found_titles (blacklist): {len(graph_input['found_titles'])} titles")
     
     try:
@@ -125,6 +134,12 @@ def create_ui():
                     info="Wähle deine verfügbaren Streaming-Dienste"
                 )
                 
+                only_free_checkbox = gr.Checkbox(
+                    value=False,
+                    label="Nur kostenlose Inhalte",
+                    info="Nur Inhalte anzeigen, die kostenlos verfügbar sind"
+                )
+                
                 gr.Markdown(
                     """
                     ### 💡 Beispiel-Anfragen:
@@ -151,8 +166,8 @@ def create_ui():
                     clear_btn = gr.Button("Chat löschen")
         
         # Event handlers
-        def respond(message, history, providers, thread_id):
-            bot_response = chat_with_bot(message, history, providers, thread_id)
+        def respond(message, history, providers, only_free, thread_id):
+            bot_response = chat_with_bot(message, history, providers, only_free, thread_id)
             # Gradio expects messages in dict format with 'role' and 'content'
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_response})
@@ -160,13 +175,13 @@ def create_ui():
         
         submit_btn.click(
             respond,
-            inputs=[msg, chatbot, provider_selector, thread_id_state],
+            inputs=[msg, chatbot, provider_selector, only_free_checkbox, thread_id_state],
             outputs=[msg, chatbot]
         )
         
         msg.submit(
             respond,
-            inputs=[msg, chatbot, provider_selector, thread_id_state],
+            inputs=[msg, chatbot, provider_selector, only_free_checkbox, thread_id_state],
             outputs=[msg, chatbot]
         )
         

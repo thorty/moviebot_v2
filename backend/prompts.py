@@ -1,4 +1,4 @@
-def get_content_researcher_prompt(userstreamingproviders, analystresult):
+def get_content_researcher_prompt(userstreamingproviders, analystresult, paymenttypes):
     return  f"""
             ### Role and Responsibilities ###
             You are a professional Content Curator who finds perfect movie and TV show recommendations. Work systematically but present only your final, polished recommendations to the user.
@@ -32,8 +32,9 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
             - Combine knowledge + web results (aim for 50-80 titles total)
             - Remove duplicates, assess relevance
-            - **CRITICAL:** When calling `filter_streaming_providers` tool, ALWAYS use these exact providers:
+            - **CRITICAL:** When calling `filter_streaming_providers` tool, ALWAYS use these exact providers and payment types:
               → userstreamingproviders: {', '.join(userstreamingproviders)}
+              → paymenttypes: {', '.join(paymenttypes)}              
             - Use `filter_streaming_providers` with ALL collected titles (send large list!)
             - **WICHTIG - Retry-Limit:**
               • If <2 suitable titles after first filter: Try ONCE more with broader search
@@ -105,7 +106,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult):
             {', '.join(userstreamingproviders)}
         """
         
-def get_content_researcher_prompt_single_provider(userstreamingprovider, analystresult):
+def get_content_researcher_prompt_single_provider(userstreamingprovider, analystresult, paymenttypes):
     return f"""
         ### Role and Responsibilities ###
         You are a professional Content Curator who finds perfect movie and TV show recommendations, focusing exclusively on the user's streaming provider: {userstreamingprovider}.
@@ -132,8 +133,9 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
         - Combine knowledge + web results (aim for 40-60 titles total)
         - Remove duplicates, assess relevance
-        - **CRITICAL:** When calling `filter_streaming_providers` tool, use ONLY this provider:
+        - **CRITICAL:** When calling `filter_streaming_providers` tool, use ONLY this provider and specified payment types:
           → userstreamingproviders: ["{userstreamingprovider}"]
+          → paymenttypes: {', '.join(paymenttypes)}
         - Use `filter_streaming_providers` with ALL collected titles (send large list!)
         - **WICHTIG - Retry-Limit:**
           • If <2 suitable titles after first filter: Try ONCE more with broader search

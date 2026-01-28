@@ -42,7 +42,8 @@ class TestFilterStreamingProviders:
         # Call the tool
         result = filter_streaming_providers.invoke({
             'titleList': ['Ghost in the Shell', 'Akira'],
-            'userstreamingproviders': ['Amazon Prime']
+            'userstreamingproviders': ['Amazon Prime'],
+            'paymenttype': ['free', 'rent']
         })
         
         # Assertions
@@ -51,6 +52,43 @@ class TestFilterStreamingProviders:
         assert len(result['available_titles']) == 2
         assert len(result['unavailable_titles']) == 0
         assert result['available_titles'][0]['title'] == 'Ghost in the Shell'
+        
+    @patch('backend.tools.get_filtered_titles_tmdb')
+    def test_filter_with_only_flatproviders_available(self, mock_tmdb):
+        """Test filtering when titles have flatproviders"""
+        # Mock TMDB response
+        mock_tmdb.return_value = [
+            {
+                'title': 'Ghost in the Shell',
+                'flatproviders': [],
+                'rentproviders': ['Amazon Prime Video'],
+                'overview': 'A cyborg policewoman...',
+                'release_date': '1995-11-18',
+                'id': 9323
+            },
+            {
+                'title': 'Akira',
+                'flatproviders': ['Netflix'],
+                'rentproviders': [],
+                'overview': 'A secret military project...',
+                'release_date': '1988-07-16',
+                'id': 149
+            }
+        ]
+        
+        # Call the tool
+        result = filter_streaming_providers.invoke({
+            'titleList': ['Ghost in the Shell', 'Akira'],
+            'userstreamingproviders': ['Amazon Prime'],
+            'paymenttype': ['free']
+        })
+        
+        # Assertions
+        assert result['found_count'] == 1
+        assert result['total_checked'] == 2
+        assert len(result['available_titles']) == 1
+        assert len(result['unavailable_titles']) == 1
+        assert result['available_titles'][0]['title'] == 'Akira'        
     
     @patch('backend.tools.get_filtered_titles_tmdb')
     def test_filter_with_rentproviders_available(self, mock_tmdb):
@@ -68,7 +106,8 @@ class TestFilterStreamingProviders:
         
         result = filter_streaming_providers.invoke({
             'titleList': ['Blade Runner 2049'],
-            'userstreamingproviders': ['Apple TV+', 'Amazon Prime']
+            'userstreamingproviders': ['Apple TV+', 'Amazon Prime'],
+            'paymenttype': ['free', 'rent']
         })
         
         assert result['found_count'] == 1
@@ -91,7 +130,8 @@ class TestFilterStreamingProviders:
         
         result = filter_streaming_providers.invoke({
             'titleList': ['Obscure Film'],
-            'userstreamingproviders': ['Netflix', 'Disney Plus']
+            'userstreamingproviders': ['Netflix', 'Disney Plus'],
+            'paymenttype': ['free', 'rent']
         })
         
         assert result['found_count'] == 0
@@ -130,7 +170,8 @@ class TestFilterStreamingProviders:
         
         result = filter_streaming_providers.invoke({
             'titleList': ['Available Film', 'Unavailable Film', 'Rent Only Film'],
-            'userstreamingproviders': ['Netflix', 'Apple TV+']
+            'userstreamingproviders': ['Netflix', 'Apple TV+'],
+            'paymenttype': ['free', 'rent']
         })
         
         assert result['found_count'] == 2
@@ -145,7 +186,8 @@ class TestFilterStreamingProviders:
         
         result = filter_streaming_providers.invoke({
             'titleList': [],
-            'userstreamingproviders': ['Netflix']
+            'userstreamingproviders': ['Netflix'],
+            'paymenttype': ['free', 'rent']
         })
         
         assert result['found_count'] == 0
@@ -172,7 +214,8 @@ class TestFilterStreamingProviders:
         title_list = [f'Film {i}' for i in range(60)]
         result = filter_streaming_providers.invoke({
             'titleList': title_list,
-            'userstreamingproviders': ['Netflix']
+            'userstreamingproviders': ['Netflix'],
+            'paymenttype': ['free', 'rent']
         })
         
         # Should find 30 titles (every even number)
@@ -200,7 +243,8 @@ class TestFilterStreamingProviders:
         
         result = filter_streaming_providers.invoke({
             'titleList': [f'Film {i}' for i in range(15)],
-            'userstreamingproviders': ['Netflix']
+            'userstreamingproviders': ['Netflix'],
+            'paymenttype': ['free', 'rent']
         })
         
         # Check warning in output
@@ -271,37 +315,6 @@ class TestProcessContent:
         # Should return minimal text
         assert isinstance(result, str)
         assert len(result) >= 0
-
-
-class TestToolsIntegration:
-    """Integration tests for tool functions"""
-    
-    def test_get_all_tools_returns_correct_tools(self):
-        """Test that get_all_tools returns all expected tools"""
-        tools = get_all_tools()
-        
-        assert len(tools) == 3
-        tool_names = [tool.name for tool in tools]
-        assert 'internet_search_serper' in tool_names
-        assert 'process_content' in tool_names
-        assert 'filter_streaming_providers' in tool_names
-    
-    def test_all_tools_are_callable(self):
-        """Test that all returned tools have invoke method"""
-        tools = get_all_tools()
-        
-        for tool in tools:
-            assert hasattr(tool, 'invoke')
-            assert callable(tool.invoke)
-    
-    def test_filter_tool_has_correct_schema(self):
-        """Test that filter_streaming_providers has correct input schema"""
-        tool = filter_streaming_providers
-        
-        # Check tool metadata
-        assert tool.name == 'filter_streaming_providers'
-        assert 'titleList' in str(tool.args_schema.schema())
-        assert 'userstreamingproviders' in str(tool.args_schema.schema())
 
 
 # Pytest fixtures

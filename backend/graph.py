@@ -15,7 +15,7 @@ from backend.tools import get_all_tools
 from langchain_core.messages import SystemMessage, AIMessage    
 from openai import AzureOpenAI  
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from backend.utils.tmdb.common import Provider
+from backend.utils.tmdb.common import Provider, PaymentTypes
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -354,15 +354,16 @@ def create_content_researcher(model):
 
         default_streamingproviders = [provider.value for provider in Provider]
         userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
+        paymenttypes = state.get("paymenttypes", [payment.value for payment in PaymentTypes])
         analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
         found_titles = state.get("found_titles", [])
         
         print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
         
         # Build system prompt
-        base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult)
+        base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult,paymenttypes)
         if len(userstreamingproviders) == 1:
-            base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult)
+            base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult,paymenttypes)
         
         # Add blacklist to prevent duplicates
         if found_titles:

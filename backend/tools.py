@@ -8,9 +8,9 @@ from duckduckgo_search import DDGS
 from langchain_core.tools import tool
 import requests # Import the tool decorator again
 sys.path.append('./utils')  # Add the 'utils' directory to the Python path
-from backend.utils.helper import get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
+from backend.utils.helper import choose_streaming_providers, get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
 from langchain_community.utilities import GoogleSerperAPIWrapper
-
+from backend.utils.tmdb.common import Provider, FreeProvider, PaymentTypes
 
 load_dotenv(dotenv_path=".env", override=True)
 
@@ -18,7 +18,7 @@ TAVILY_API_KEY = os.getenv('TAVILY_API_KEY')
 SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
 
 @tool
-def filter_streaming_providers(titleList: list[str], userstreamingproviders: list[str]) -> dict:
+def filter_streaming_providers(titleList: list[str], userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
     """Filters the streaming providers based on the user's preferences.
     Optimized to handle large lists (50-100+ titles) for better discovery.
     
@@ -26,6 +26,7 @@ def filter_streaming_providers(titleList: list[str], userstreamingproviders: lis
         titleList (list[str]): A list of titles to filter. Only titles, no additional info! 
                                Can handle 50-100+ titles for comprehensive search.
         userstreamingproviders (list[str]): A list of user's preferred streaming providers.
+        paymenttype (list[str]): A list of user's preferred payment types (free, rent).
     
     Returns:
         dict: Structured results with available_titles, unavailable_titles, and count
@@ -34,6 +35,10 @@ def filter_streaming_providers(titleList: list[str], userstreamingproviders: lis
         Input: ['Ghost in the Shell', 'Akira', 'Blade Runner', ...] (60 titles)
         Output: {'available_titles': [...], 'found_count': 12, ...}
     """
+    
+    print(f"[TOOL] Choosing streaming providers based on payment types: {paymenttypes}")
+    # choose streeming providers based on properties
+    userstreamingproviders = choose_streaming_providers(userstreamingproviders, paymenttypes)                      
     print(f"[TOOL] filter_streaming_providers called: {len(titleList)} titles, providers: {userstreamingproviders}")
     
     # Warnung wenn zu wenige Titel
@@ -50,13 +55,12 @@ def filter_streaming_providers(titleList: list[str], userstreamingproviders: lis
         for title_info in filtered_titles:
             if isinstance(title_info, dict):
                 # Prüfe ob Titel verfügbar ist (flatproviders oder rentproviders vorhanden)
-                has_availability = False
-                
+                has_availability = False                
                 # Check flatproviders
                 if 'flatproviders' in title_info and title_info['flatproviders']:
                     has_availability = True
                 # Check rentproviders als Fallback
-                elif 'rentproviders' in title_info and title_info['rentproviders']:
+                elif 'rentproviders' in title_info and title_info['rentproviders'] and 'rent' in paymenttypes:
                     has_availability = True
                 
                 if has_availability:

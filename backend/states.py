@@ -27,6 +27,8 @@ def add_message(existing_messages: list, new_messages: list) -> list:
 class AgentState(TypedDict):
     # User's streaming providers
     userstreamingproviders: list[str]
+    # User's payment types (e.g., free, rent)
+    paymenttypes: list[str]
     # Messages for conversation history
     messages: Annotated[list[AnyMessage], add_message]
     # The result from the interest analyst (search query summary)
