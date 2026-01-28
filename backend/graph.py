@@ -1,4 +1,5 @@
 import os
+from xml.parsers.expat import model
 import dotenv
 import time
 import json
@@ -9,7 +10,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
 from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from backend.tools import get_all_tools
 from langchain_core.messages import SystemMessage, AIMessage    
 from openai import AzureOpenAI  
@@ -18,8 +19,40 @@ from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 import logging
 logging.basicConfig(level=logging.INFO)
 
+def initialize_gpt4omini_model():
+    """
+    Initialize Azure OpenAI model once.
+    Called during graph creation to avoid repeated initialization.
+    """
 
-def initialize_model():
+    # Initialize our LLM
+    gpt4omini_model = ChatOpenAI(   
+        api_key= os.getenv("OPENAI_API_KEY"),
+        temperature=0.3,
+        model="gpt-4o-mini"
+        # todo maxtoken
+    )
+    print(f"[MODEL_INIT] ✓ Model initialized: gpt4o-mini")
+    return gpt4omini_model    
+
+def initialize_gpt41_model():
+    """
+    Initialize Azure OpenAI model once.
+    Called during graph creation to avoid repeated initialization.
+    """
+
+    # Initialize our LLM
+    gpt41_model = ChatOpenAI(   
+        api_key= os.getenv("OPENAI_API_KEY"),
+        temperature=0.3,
+        model="gpt-4.1"
+        # todo maxtoken
+    )
+    print(f"[MODEL_INIT] ✓ Model initialized: gpt-4.1")
+    return gpt41_model    
+    
+
+def initialize_azmodel():
     """
     Initialize Azure OpenAI model once.
     Called during graph creation to avoid repeated initialization.
@@ -44,7 +77,7 @@ def initialize_model():
         "https://cognitiveservices.azure.com/.default"
     )
 
-    model = AzureChatOpenAI(
+    az_model = AzureChatOpenAI(
         model=model_name,
         api_version=api_version,
         azure_endpoint=endpoint,
@@ -53,7 +86,7 @@ def initialize_model():
     )
     
     print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
-    return model
+    return az_model
 
 
 def log_state(node_name: str, state: dict, position: str = "ENTRY"):
@@ -449,14 +482,15 @@ def create_graph():
     dotenv.load_dotenv(dotenv_path=".env", override=True)
     
     # Initialize model ONCE for the entire graph
-    model = initialize_model()
+    model_gpt41 = initialize_gpt41_model()
+    model_gpt4omini = initialize_gpt4omini_model()
     
     workflow = StateGraph(AgentState)
 
     # Create nodes with model closure (no re-initialization)
-    workflow.add_node("interest_analyst", create_interest_analyst(model))
+    workflow.add_node("interest_analyst", create_interest_analyst(model_gpt4omini))
     workflow.add_node("analyst_output_validator", analyst_output_validator)
-    workflow.add_node("content_researcher", create_content_researcher(model))
+    workflow.add_node("content_researcher", create_content_researcher(model_gpt41))
     workflow.add_node("tools", tool_node_with_state_tracking)
     workflow.add_node("result_validator", result_validator)
     workflow.add_node("fallback_response", fallback_response)
