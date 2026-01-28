@@ -35,10 +35,10 @@ TMDB as Main Datasource
 
 ## todos
 
-- filterkriterium für paymenttype hinzufügen
+- filterkriterium für paymenttype hinzufügen ✅ 
 - tool erweitern für serien oder filme als filterkriterium
-- wenn nur ein provider: gleich in suche einbeziehen
-- suche optimieren / Retrieval
+- wenn nur ein provider: gleich in suche einbeziehen ✅ 
+- suche optimieren / Retrieval 
 - Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
 - run in docker
 - fullstack app:
