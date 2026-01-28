@@ -34,8 +34,7 @@ def stream_graph_updates(graph, user_input: str):
         
         # Input für den Graph vorbereiten
         graph_input = {
-            "messages": [HumanMessage(content=user_input)],
-            #"userstreamingproviders": ["Netflix", "Disney Plus", "Amazon Prime", "Hulu", "HBO Max", "Apple TV+", "MagentaTV", "Joyn", "Sky Ticket"]
+            "messages": [HumanMessage(content=user_input)],            
             "userstreamingproviders": ["Disney Plus", "Amazon Prime", "Apple TV+"]
         }
         

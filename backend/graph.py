@@ -15,8 +15,9 @@ from backend.tools import get_all_tools
 from langchain_core.messages import SystemMessage, AIMessage    
 from openai import AzureOpenAI  
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-
+from backend.utils.tmdb.common import Provider
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 def initialize_gpt4omini_model():
@@ -351,7 +352,7 @@ def create_content_researcher(model):
         tools = get_all_tools()
         model_with_searchtools = model.bind_tools(tools)    
 
-        default_streamingproviders = ["Netflix", "Disney Plus", "Amazon Prime", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"]
+        default_streamingproviders = [provider.value for provider in Provider]
         userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
         analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
         found_titles = state.get("found_titles", [])

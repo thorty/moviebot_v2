@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from backend.graph import create_graph
 from backend.utils.setupenv import enable_langsmith
+from backend.utils.tmdb.common import Provider
 
 
 load_dotenv()
@@ -18,7 +19,7 @@ enable_langsmith()
 graph = create_graph()
 
 # Available streaming providers
-AVAILABLE_PROVIDERS = ["Netflix", "Disney Plus", "Amazon Prime", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"]
+AVAILABLE_PROVIDERS = [provider.value for provider in Provider]
 
 # Global state to store last result for state persistence
 last_result_store = {}
