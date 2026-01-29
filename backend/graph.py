@@ -363,7 +363,7 @@ def create_content_researcher(model):
         # Build system prompt
         base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult,paymenttypes)
         if len(userstreamingproviders) == 1:
-            base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders, analystresult,paymenttypes)
+            base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders[0], analystresult,paymenttypes)
         
         # Add blacklist to prevent duplicates
         if found_titles:

@@ -9,50 +9,48 @@ def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: 
   """
   Filter streaming providers based on payment types.
   - If paymenttypes contains only 'free': filter against FreeProvider and return matched FreeProvider values
-  - If paymenttypes contains 'rent' or other types: filter against Provider enum
+  - If paymenttypes contains 'rent' (or mixed types): filter against BOTH Provider and FreeProvider enums
   
   Uses improved fuzzy matching to handle variations like "MagentaTV" vs "Magenta TV+".
-  Returns ALL matching canonical provider names from the respective enum.
+  Returns ALL matching canonical provider names from the respective enum(s).
   """
-  # Determine which enum to use based on payment types
+  # Determine which enum(s) to use based on payment types
   if paymenttypes == ["free"]:
     # Only free content - use FreeProvider
     reference_providers = [fp.value for fp in FreeProvider]
   else:
-    # Rent or mixed payment types - use full Provider enum
-    reference_providers = [p.value for p in Provider]
+    # Rent or mixed payment types - use BOTH enums to get all variations
+    # This ensures we get both "MagentaTV" (rent) and "Magenta TV+" (free) when both payment types are selected
+    reference_providers = list(set([p.value for p in Provider] + [fp.value for fp in FreeProvider]))
   
   filtered_providers = []
   for user_provider in userstreamingproviders:
     user_lower = user_provider.lower()
-    matched = False
     
     # Check for exact match first
     if user_provider in reference_providers:
       filtered_providers.append(user_provider)
-      matched = True
     
-    # If no exact match, do improved fuzzy matching
-    if not matched:
-      # Remove common separators for better matching (e.g., "MagentaTV" vs "Magenta TV+")
-      user_normalized = user_lower.replace(' ', '').replace('+', '').replace('-', '')
-      user_words = set(user_lower.split())
+    # ALWAYS do fuzzy matching to find all variations (e.g., "MagentaTV" AND "Magenta TV+")
+    # Remove common separators for better matching (e.g., "MagentaTV" vs "Magenta TV+")
+    user_normalized = user_lower.replace(' ', '').replace('+', '').replace('-', '')
+    user_words = set(user_lower.split())
+    
+    for ref_provider in reference_providers:
+      ref_lower = ref_provider.lower()
+      ref_normalized = ref_lower.replace(' ', '').replace('+', '').replace('-', '')
+      ref_words = set(ref_lower.split())
       
-      for ref_provider in reference_providers:
-        ref_lower = ref_provider.lower()
-        ref_normalized = ref_lower.replace(' ', '').replace('+', '').replace('-', '')
-        ref_words = set(ref_lower.split())
-        
-        # Multiple matching strategies:
-        # 1. Normalized strings contain each other (handles "MagentaTV" vs "Magenta TV+")
-        # 2. Word overlap (handles "Amazon Prime" vs "Amazon Prime Video")
-        # 3. One string contains the other
-        if (user_normalized in ref_normalized or ref_normalized in user_normalized or
-            (user_words & ref_words) or 
-            (user_lower in ref_lower) or (ref_lower in user_lower)):
-          # Avoid duplicates
-          if ref_provider not in filtered_providers:
-            filtered_providers.append(ref_provider)
+      # Multiple matching strategies:
+      # 1. Normalized strings contain each other (handles "MagentaTV" vs "Magenta TV+")
+      # 2. Word overlap (handles "Amazon Prime" vs "Amazon Prime Video")
+      # 3. One string contains the other
+      if (user_normalized in ref_normalized or ref_normalized in user_normalized or
+          (user_words & ref_words) or 
+          (user_lower in ref_lower) or (ref_lower in user_lower)):
+        # Avoid duplicates
+        if ref_provider not in filtered_providers:
+          filtered_providers.append(ref_provider)
   
   return filtered_providers
   

@@ -122,26 +122,30 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         ### Your Research Process (Internal - Don't show these steps) ###
 
-        **Step 1: Provider-Focused Knowledge Base Research**
-        - Use your knowledge of films and series, but ONLY consider titles that are (or were) available on {userstreamingprovider}.
-        - **WICHTIG: Priorisiere Titel die häufig in Flatrate-Angeboten verfügbar sind**
-        - Generate AT LEAST 30-40 fitting titles based on: {analystresult}
-        - Mix of: Blockbusters, Hidden Gems, Cult Classics, Recent Releases
-        - Consider different genres, release years (1985-2024), countries/languages, and ratings.
-        - **Bevorzuge Titel die typischerweise in Streaming-Flatrates verfügbar sind**
+        **Step 1: MINIMAL Knowledge Base Research**
+        - Generate ONLY 10-15 VERY WELL-KNOWN titles from your knowledge that are LIKELY available on {userstreamingprovider}
+        - Focus ONLY on major blockbusters and popular series that streaming services typically have
+        - **KRITISCH: Verwende dein Wissen nur minimal - die Verfügbarkeit ändert sich ständig!**
+        - Examples of likely titles: Popular Netflix Originals (if Netflix), Disney franchises (if Disney+), etc.
 
-        **Step 2: Provider-Specific Web Research**
-        - Create 3-5 search queries that explicitly include {userstreamingprovider}:
-          • "[Genre] beste Filme/Serien auf {userstreamingprovider} 2010-2024"
-          • "Hidden gems {userstreamingprovider} [Genre]"
-          • "Neue Filme/Serien auf {userstreamingprovider}"
-        - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd
+        **Step 2: INTENSIVE Provider-Specific Web Research (PRIMARY SOURCE)**
+        - **THIS IS YOUR MAIN SOURCE - Web research is more reliable than your knowledge!**
+        - Create 5-7 highly specific search queries that EXPLICITLY mention availability on {userstreamingprovider}:
+          • "{userstreamingprovider} [Genre] Filme Serien verfügbar aktuell"
+          • "Was gibt es auf {userstreamingprovider} [Genre] beste Empfehlungen"
+          • "{userstreamingprovider} Geheimtipps {analystresult[:50]}"
+          • "{userstreamingprovider} neue Filme Serien [Genre] 2024 2025"
+          • "Verfügbar auf {userstreamingprovider} [Genre] hidden gems"
+          • "{userstreamingprovider} Flatrate [Genre] kostenlos enthalten"
+          • "Aktuelle {userstreamingprovider} Highlights [relevante Keywords]"
+        - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd, justwatch
         - Avoid: werstreamtes.de
-        - GOAL: Collect 40-60 titles total before filtering (balance quality & speed)
+        - **GOAL: Collect 35-50 titles PRIMARILY from web research (web = 80%, knowledge = 20%)**
 
         **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
-        - Combine knowledge + web results (aim for 40-60 titles total)
+        - Combine knowledge + web results (aim for 35-50 titles total, PRIORITIZE web research results)
         - Remove duplicates, assess relevance
+        - **WICHTIG: Da du provider-spezifisch gesucht hast, sollten mehr Titel verfügbar sein!**
         - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
           [
             {{"title": "Breaking Bad", "media_type": "tv"}},
@@ -156,8 +160,8 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
           → paymenttypes: {', '.join(paymenttypes)}
         - Use `filter_streaming_providers` with ALL collected titles (send large list!)
         - **WICHTIG - Retry-Limit:**
-          • If <2 suitable titles after first filter: Try ONCE more with broader search
-          • If still <2 titles: Try ONE final time with very broad search (other genres/years)
+          • If <2 suitable titles after first filter: Try ONCE more with MORE SPECIFIC web search for "{userstreamingprovider} verfügbar"
+          • If still <2 titles: Try ONE final time with very broad "{userstreamingprovider}" search (any genre)
           • Maximum 3 attempts total (1 initial + 2 retries)
           • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
 
