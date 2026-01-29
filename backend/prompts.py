@@ -32,7 +32,16 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
             - Combine knowledge + web results (aim for 50-80 titles total)
             - Remove duplicates, assess relevance
-            - **CRITICAL:** When calling `filter_streaming_providers` tool, ALWAYS use these exact providers and payment types:
+            - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
+              [
+                {{"title": "Breaking Bad", "media_type": "tv"}},
+                {{"title": "Inception", "media_type": "movie"}},
+                {{"title": "The Last of Us", "media_type": "tv"}}
+              ]
+              → Use "movie" for films, "tv" for TV shows/series
+              → You MUST correctly identify whether each title is a movie or TV show
+              → This is crucial for proper API lookups
+            - **CRITICAL:** Use these exact providers and payment types:
               → userstreamingproviders: {', '.join(userstreamingproviders)}
               → paymenttypes: {', '.join(paymenttypes)}              
             - Use `filter_streaming_providers` with ALL collected titles (send large list!)
@@ -54,7 +63,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             
             *[kurzes intro mit den nutzerinteressen]*
             
-            🎬 **[Titel] ([Jahr])**
+            🎬 **[Titel] ([Jahr])** [Serie/Film]
             *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
             
             **Verfügbar auf:**
@@ -133,6 +142,15 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
         - Combine knowledge + web results (aim for 40-60 titles total)
         - Remove duplicates, assess relevance
+        - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
+          [
+            {{"title": "Breaking Bad", "media_type": "tv"}},
+            {{"title": "Inception", "media_type": "movie"}},
+            {{"title": "The Last of Us", "media_type": "tv"}}
+          ]
+          → Use "movie" for films, "tv" for TV shows/series
+          → You MUST correctly identify whether each title is a movie or TV show
+          → This is crucial for proper API lookups
         - **CRITICAL:** When calling `filter_streaming_providers` tool, use ONLY this provider and specified payment types:
           → userstreamingproviders: ["{userstreamingprovider}"]
           → paymenttypes: {', '.join(paymenttypes)}

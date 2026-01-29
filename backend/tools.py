@@ -18,22 +18,30 @@ TAVILY_API_KEY = os.getenv('TAVILY_API_KEY')
 SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
 
 @tool
-def filter_streaming_providers(titleList: list[str], userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
+def filter_streaming_providers(titleList: list, userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
     """Filters the streaming providers based on the user's preferences.
     Optimized to handle large lists (50-100+ titles) for better discovery.
     
     Args:
-        titleList (list[str]): A list of titles to filter. Only titles, no additional info! 
-                               Can handle 50-100+ titles for comprehensive search.
+        titleList (list): A list of title objects with 'title' and 'media_type' keys.
+                         Format: [
+                             {"title": "Breaking Bad", "media_type": "tv"},
+                             {"title": "Inception", "media_type": "movie"}
+                         ]
+                         media_type must be either "movie" or "tv"
+                         Can handle 50-100+ titles for comprehensive search.
         userstreamingproviders (list[str]): A list of user's preferred streaming providers.
-        paymenttype (list[str]): A list of user's preferred payment types (free, rent).
+        paymenttypes (list[str]): A list of user's preferred payment types (free, rent).
     
     Returns:
         dict: Structured results with available_titles, unavailable_titles, and count
     
     Example:
-        Input: ['Ghost in the Shell', 'Akira', 'Blade Runner', ...] (60 titles)
-        Output: {'available_titles': [...], 'found_count': 12, ...}
+        Input: [
+            {"title": "Breaking Bad", "media_type": "tv"},
+            {"title": "Akira", "media_type": "movie"}
+        ]
+        Output: {'available_titles': [...], 'found_count': 2, ...}
     """
     
     print(f"[TOOL] Choosing streaming providers based on payment types: {paymenttypes}")
