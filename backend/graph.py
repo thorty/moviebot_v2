@@ -180,19 +180,18 @@ def fallback_response(state: AgentState):
     
     userstreamingproviders = state.get("userstreamingproviders", [])
     
-    fallback_message = f"""Leider konnte ich auf deinen Streaming-Plattformen ({', '.join(userstreamingproviders)}) keine passenden Titel zu deiner Anfrage finden.
+    fallback_message = f"""
+    Oh nein, gerade habe ich leider nichts Passendes gefunden. 😨
 
-Das kann verschiedene Gründe haben:
-- Die gesuchten Inhalte sind aktuell nicht auf diesen Plattformen verfügbar
-- Die Titel sind möglicherweise regional eingeschränkt
-- Sehr spezifische Anfragen haben manchmal eine begrenzte Auswahl
+    Lass uns gemeinsam nochmal suchen – vielleicht mit einer etwas breiteren Anfrage oder auf noch mehr Anbietern (z. B. Netflix, Disney+, Prime, Sky und Co.).
 
-**Meine Vorschläge:**
-1. Formuliere deine Anfrage etwas breiter (z.B. ähnliche Genres oder Themen)
-2. Nenne mir konkrete Filme/Serien die dir gefallen haben - dann finde ich ähnliche Inhalte
-3. Wenn du an anderen Plattformen interessiert bist, kann ich auch dort suchen
+    Du kannst zum Beispiel:
+    • Mehr Plattformen freigeben, damit ich noch mehr für dich durchstöbern kann
+    • Deine Wünsche etwas allgemeiner formulieren (z. B. Genre, Stimmung, Jahrzehnt)
+    • Oder mir 1–2 Filme/Serien nennen, die du magst – dann finde ich Ähnliches!
 
-Was möchtest du tun?"""
+    Sag einfach kurz Bescheid, wie du weitermachen möchtest – ich bin bereit für die nächste Runde und finde bestimmt was für dich! 🔍 😊
+    """
     
     response_msg = AIMessage(content=fallback_message)
     
