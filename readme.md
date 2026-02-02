@@ -35,41 +35,43 @@ TMDB as Main Datasource
 
 ## todos
 
-- filterkriterium für paymenttype hinzufügen ✅ 
-- tool erweitern für serien oder filme als filterkriterium
-- wenn nur ein provider: gleich in suche einbeziehen ✅ 
-- suche optimieren / Retrieval 
-- Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
-- run in docker
+- allgemeine features:
+  - filterkriterium für paymenttype hinzufügen ✅ 
+  - tool erweitern für serien oder filme als filterkriterium ✅
+  - wenn nur ein provider: gleich in suche einbeziehen ✅ 
+  - outofscope questions handeling
+  - fallbackmessage optimieren. simpel und klar mit empathie. 
+  - buy providers ebenso suchen und vorschlagen.
+  - suche optimieren / Retrieval 
+    - mediatheken durchsuchen https://mediathekviewweb.de/#future=false
+  - run in docker
+  - using superbase framework for, database, login and usermngmnt, logging,...
 - fullstack app:
-  - frontend in react
-  - frontend for streaming provider selection
-  - backend with fastapi
-- botlogik:
-    - streamingprovidersuche (werstreamtes)
-- direktlinks zu streamingprovider
-
-### ideen
-- playlisten erstellen 
-- multiuser / login mit playlisten
-
-### backend
-
-- finished is included in the result (because of streaming)
-- keine loop und sagt trotzdem manchmal was es macht anstelle es zu tun
-- optimize research and retrieval (perplexity)
-- include documentation
+  - frontend (nodejs)
+    - logim 
+    - frontend in react
+    - frontend for streaming provider selection
+    - loaading animation
+    - cover artwork
+    - use cookie for perovider selection
+    - direktlinks zu streamingprovider 
+    - example questions as buttons
+  - backend (fastapi with db):
+    - store conversations     
+    - psa complience check    
+    - setup rate limits
+    - chat history:
+      - Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
+  
+- hosting: 
+  - single docker container 
+  - superbase
+  
 
 #### interview agent
-- frag ob du mehrere filme empfehlen sollst *optional
-- fragenkatalog instruieren
 - promptengineering interviewagent, komplexer gestalten
-
-### frontend
-- filter streaming providers
-- free / rent / buy option for those providers
-- with login
-- example questions as buttons
+  - frag ob du mehrere filme empfehlen sollst *optional
+  - fragenkatalog instruieren
 
 
 ## sources, tutorials

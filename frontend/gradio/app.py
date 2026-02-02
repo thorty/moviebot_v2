@@ -73,7 +73,8 @@ def chat_with_bot(message, history, selected_providers, only_free, thread_id):
     
     # Configure with thread_id for session persistence
     config = {
-        "configurable": {"thread_id": thread_id}
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": 50  # Allow up to 50 node executions (handles retries + multi-tool usage)
     }
     
     print(f"[DEBUG] Using thread_id: {thread_id}")
