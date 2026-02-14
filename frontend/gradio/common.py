@@ -8,4 +8,5 @@ class UserStreamingProvider(Enum):
     PARAMOUNT_PLUS = "Paramount Plus"
     APPLE_TV = "Apple TV"    
     MAGENTA_TV = "MagentaTV"    
+    MEDIATHEKEN = "Mediatheken"
     

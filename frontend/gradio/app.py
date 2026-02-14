@@ -21,6 +21,7 @@ graph = create_graph()
 
 # Available streaming providers
 AVAILABLE_PROVIDERS = [provider.value for provider in UserStreamingProvider]
+STREAMING_PROVIDERS_ONLY = [p.value for p in UserStreamingProvider if p != UserStreamingProvider.MEDIATHEKEN]
 PAYMENT_TYPES = [payment.value for payment in PaymentTypes]  # Currently supported payment types
 
 
@@ -35,13 +36,14 @@ def clear_thread_state(thread_id):
     return None
 
 
-def chat_with_bot(message, history, selected_providers, only_free, thread_id):
+def chat_with_bot(message, history, content_type, selected_providers, only_free, thread_id):
     """
     Handle chat interaction with the MovieBot.
     
     Args:
         message: User's input message
         history: Chat history in Gradio format [(user_msg, bot_msg), ...]
+        content_type: "Streaming-Dienste" or "Mediatheken"
         selected_providers: List of selected streaming providers
         only_free: Boolean indicating if only free content should be shown
         thread_id: Unique session ID
@@ -52,8 +54,11 @@ def chat_with_bot(message, history, selected_providers, only_free, thread_id):
     if not message or not message.strip():
         return history
     
-    # Use selected providers or default to Disney Plus
-    providers = selected_providers if selected_providers else AVAILABLE_PROVIDERS
+    # Determine providers based on content type
+    if content_type == "Mediatheken":
+        providers = ["Mediatheken"]
+    else:  # "Streaming-Dienste"
+        providers = selected_providers if selected_providers else ["Disney Plus"]
     
     # Determine payment types based on "only free" selection
     payment_types = ["free"] if only_free else PAYMENT_TYPES
@@ -128,11 +133,19 @@ def create_ui():
             with gr.Column(scale=1):
                 gr.Markdown("### ⚙️ Einstellungen")
                 
+                content_type_radio = gr.Radio(
+                    choices=["Streaming-Dienste", "Mediatheken"],
+                    value="Streaming-Dienste",
+                    label="Content-Typ",
+                    info="Wähle zwischen Streaming-Diensten oder öffentlich-rechtlichen Mediatheken (ARD/ZDF)"
+                )
+                
                 provider_selector = gr.CheckboxGroup(
-                    choices=AVAILABLE_PROVIDERS,
+                    choices=STREAMING_PROVIDERS_ONLY,
                     value=["Disney Plus"],
                     label="Streaming-Anbieter",
-                    info="Wähle deine verfügbaren Streaming-Dienste"
+                    info="Wähle deine verfügbaren Streaming-Dienste",
+                    visible=True
                 )
                 
                 only_free_checkbox = gr.Checkbox(
@@ -167,8 +180,21 @@ def create_ui():
                     clear_btn = gr.Button("Chat löschen")
         
         # Event handlers
-        def respond(message, history, providers, only_free, thread_id):
-            bot_response = chat_with_bot(message, history, providers, only_free, thread_id)
+        def toggle_provider_visibility(content_type):
+            """Show/hide provider selector based on content type."""
+            if content_type == "Mediatheken":
+                return gr.update(visible=False)
+            else:
+                return gr.update(visible=True)
+        
+        content_type_radio.change(
+            toggle_provider_visibility,
+            inputs=[content_type_radio],
+            outputs=[provider_selector]
+        )
+        
+        def respond(message, history, content_type, providers, only_free, thread_id):
+            bot_response = chat_with_bot(message, history, content_type, providers, only_free, thread_id)
             # Gradio expects messages in dict format with 'role' and 'content'
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_response})
@@ -176,13 +202,13 @@ def create_ui():
         
         submit_btn.click(
             respond,
-            inputs=[msg, chatbot, provider_selector, only_free_checkbox, thread_id_state],
+            inputs=[msg, chatbot, content_type_radio, provider_selector, only_free_checkbox, thread_id_state],
             outputs=[msg, chatbot]
         )
         
         msg.submit(
             respond,
-            inputs=[msg, chatbot, provider_selector, only_free_checkbox, thread_id_state],
+            inputs=[msg, chatbot, content_type_radio, provider_selector, only_free_checkbox, thread_id_state],
             outputs=[msg, chatbot]
         )
         

@@ -10,7 +10,7 @@ gradio as frontend
 
 ## APIs
 LLM: OpenAI GPT4
-Search Engine: Serpa
+Search Engine: tavily
 TMDB as Main Datasource
 
 
@@ -39,30 +39,33 @@ TMDB as Main Datasource
   - filterkriterium für paymenttype hinzufügen ✅ 
   - tool erweitern für serien oder filme als filterkriterium ✅
   - wenn nur ein provider: gleich in suche einbeziehen ✅ 
-  - outofscope questions handeling
-  - fallbackmessage optimieren. simpel und klar mit empathie. 
-  - buy providers ebenso suchen und vorschlagen.
+  - fallbackmessage optimieren. simpel und klar mit empathie. ✅   
+  - outofscope questions handeling 
+  - buy providers ebenso suchen und vorschlagen. ⛔️
   - suche optimieren / Retrieval 
     - mediatheken durchsuchen https://mediathekviewweb.de/#future=false
-  - run in docker
-  - using superbase framework for, database, login and usermngmnt, logging,...
+  - setup rate limits (on used platforms)
+  - direktlinks zu streamingprovider 
+  - cover artwork 
+
 - fullstack app:
   - frontend (nodejs)
-    - logim 
-    - frontend in react
-    - frontend for streaming provider selection
-    - loaading animation
-    - cover artwork
-    - use cookie for perovider selection
-    - direktlinks zu streamingprovider 
+    - logim     
+    - streaming provider selection
+    - loaading animation (no streaming)    
+    - use cookie for perovider selection    
     - example questions as buttons
   - backend (fastapi with db):
-    - store conversations     
-    - psa complience check    
-    - setup rate limits
+    - store conversations         
     - chat history:
       - Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
   
+- architecture descisions: 
+    - frontend react 
+    - backend python 
+    - using superbase framework for, database, login and usermngmnt, logging,...
+    - run in docker  
+
 - hosting: 
   - single docker container 
   - superbase
@@ -73,6 +76,11 @@ TMDB as Main Datasource
   - frag ob du mehrere filme empfehlen sollst *optional
   - fragenkatalog instruieren
 
+#### mediatheken
+  - rag pipeline suche nach keywords
+  - content laden
+  - filtern durch nachfragen ( doku / film oder serie, erwachsenencontent ja oder nein, ... )
+
 
 ## sources, tutorials
 
@@ -80,3 +88,4 @@ https://levelup.gitconnected.com/building-an-ai-chatbot-with-langgraph-fastapi-s
 
 https://langchain-ai.github.io/langgraph/tutorials/get-started/1-build-basic-chatbot/#8-run-the-chatbot
 
+- psa complience check    

@@ -41,3 +41,12 @@ können wir es erreichen das bereits beim ersten research viel mehr titel gefund
 Ziel ist:
 beim ersten mal bereits mehr titel finden die dennoch zum content passen weil es so gut wie immer mehr gibt als 10 oder 20. 
 
+
+
+Schreibe den Instruktionsprompt um. In deisem Prompt geht es ausschließlich um die Mediatheken von ZDF und ARD. Hier muss die Suche komplett anders laufen da dort aller wahrscheinlichkeit viel weniger zur Verfügung steht. Als Tools werden dennoch die tavily api genutzt aber es muss eben anders vorgegangen werden.
+
+1. tavilo soll sich gleich am Anfang der suche auf die beiden mediatheken ARD und ZDF beschränken schon im Suchquery.
+2. Das Nutzerinteresse mus zwingen geclustert werden (mehrfachnennung ist erlasubt)
+Für Filme oder Serien in die Genres: Komödie, Action, Thriller, Romance, Abenteuer, Science Fiction, Drama, Coming-Of-Age, Horror, Krimi, Märchen, Medical Fiction, Kultur, Fanatasy, Gesellschaft, Geschichte, Natur, Umwelt, Satire, Geschichte, 
+Bei Dokumentationen in Gesellschaft, Geschichte, Natur, Sport, Reise, True Crime, Politik, Wissen, Kultur, Wirtschaft, Gesundheit, Musik, Umwelt, Kochen, Royals, Strars, Bildunng, Architektur, Ernährung, Drama, Mystery, Unterhaltung
+3. Aus der Suche müssen die Titel und Beschreibung extrahiert werden, Doppeleinträge (bei Serien) entfernt werden und dann nochmaol recherschiert werden ob die Treffer wirklich das Nutzerinteresse abdecken und nur die Vorgestellt werden welche auch passen. Ansonsten sollte die Suche wiederholt werden wie beim normalen contentresearcher Prompt.
