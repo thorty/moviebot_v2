@@ -15,3 +15,4 @@ wheels/
 .env
 todos.md
 AGENTS.md
+.DS_Store
