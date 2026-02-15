@@ -52,7 +52,7 @@ TMDB as Main API for streamingproviders
 
 
 - fullstack app:
-  - frontend (nodejs)
+  - frontend
     - login
     - streaming provider selection
     - loaading animation (no streaming)    
