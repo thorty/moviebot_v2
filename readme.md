@@ -8,7 +8,7 @@ Prototype for a LLM based recommendation system for movies and series.
 - backend: langgraph 
 - frontend: gradio
 
-## APIs
+## Used APIs
 - LLM: OpenAI 
 - Search Engine: tavily
 - TMDB as API for streamingproviders
@@ -21,6 +21,8 @@ Prototype for a LLM based recommendation system for movies and series.
 - Memmory and Checkpoint
 - Sessionhandling
 - Shorttermmemory
+
+### Graph 
 
 ![alt text](graph.png)
 
@@ -49,6 +51,5 @@ Prototype for a LLM based recommendation system for movies and series.
   - frag ob du mehrere filme empfehlen sollst *optional
   - fragenkatalog instruieren
 
-
-## run
+## Run
 gradio frontend/gradio/app.py
