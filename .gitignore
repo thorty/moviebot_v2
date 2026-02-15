@@ -5,8 +5,13 @@ build/
 dist/
 wheels/
 *.egg-info
+.vscode
+.pytest_cache/
 
 # Virtual environments
 .venv
 .chainlit
 .files
+.env
+todos.md
+AGENTS.md

@@ -5,20 +5,18 @@
 Prototype for a LLM based recommendation system for movies and series. 
 
 ## Technologie POC
-langgraph
-gradio as frontend
+- backend: langgraph 
+- frontend: gradio
 
 ## APIs
-LLM: OpenAI GPT4
-Search Engine: tavily
-TMDB as Main API for streamingproviders
-
+- LLM: OpenAI 
+- Search Engine: tavily
+- TMDB as API for streamingproviders
+- Langsmith for tracing llm calls
 
 ## Funktionsweise
 - InterviewAgent
-- RetrievalAgent (ToolsUsage)
-(- RecrommendAgent)
-(- ReflectionAgent)
+- ContentResearcher (ToolsUsage)
 - State
 - Memmory and Checkpoint
 - Sessionhandling
@@ -26,21 +24,17 @@ TMDB as Main API for streamingproviders
 
 ![alt text](graph.png)
 
-
-## bugs
-- fallback does not work ✅ 
-- fallowup frage: und umsonst? - schlechte antwort ✅ 
-
-## todos
+## Featurelist
 
 - allgemeine features:
-  - filterkriterium für paymenttype hinzufügen ✅ 
+  - clarfication questions ✅ 
+  - filter for streamingprovider ✅ 
+  - filter für paymenttype  ✅ 
   - tool erweitern für serien oder filme als filterkriterium ✅
   - wenn nur ein provider: gleich in suche einbeziehen ✅ 
   - fallbackmessage optimieren. simpel und klar mit empathie. ✅   
   - outofscope questions handeling ✅
-  - integrate mediatheken ✅
-  - setup rate limits (on used platforms)
+  - mediatheken search (ard, zdf) ✅
   - direktlinks zu streamingprovider 
   - cover artwork 
 
@@ -48,31 +42,7 @@ TMDB as Main API for streamingproviders
   - suche optimieren / Retrieval 
     - mediatheken durchsuchen https://mediathekviewweb.de/#future=false
   - filtern durch mehr nachfragen ( doku / film oder serie, erwachsenencontent ja oder nein, ... )
-  - buy providers ebenso suchen und vorschlagen. ⛔️
-
-
-- fullstack app:
-  - frontend
-    - login
-    - streaming provider selection
-    - loaading animation (no streaming)    
-    - use cookie for provider selection    
-    - example questions 
-  - backend (fastapi with db):
-    - store conversations         
-    - chat history:
-      - Eine Datenbank oder persistenter Checkpointer (z.B. SqliteSaver, PostgresSaver) würde den State komplett im Backend speichern und automatisch wiederherstellen.
-  
-- architecture descisions: 
-    - frontend react 
-    - backend python 
-    - using superbase framework for, database, login and usermngmnt, logging,...
-    - run in docker  
-
-- hosting: 
-  - single docker container 
-  - superbase
-  
+  - buy providers ebenso suchen und vorschlagen. ⛔️  
 
 #### interview agent
 - promptengineering interviewagent, komplexer gestalten
@@ -80,10 +50,3 @@ TMDB as Main API for streamingproviders
   - fragenkatalog instruieren
 
 
-## sources, tutorials
-
-https://levelup.gitconnected.com/building-an-ai-chatbot-with-langgraph-fastapi-streamlit-an-end-to-end-guide-f658969b4436
-
-https://langchain-ai.github.io/langgraph/tutorials/get-started/1-build-basic-chatbot/#8-run-the-chatbot
-
-- psa complience check    
