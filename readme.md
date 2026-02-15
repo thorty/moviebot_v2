@@ -4,15 +4,14 @@
 
 Prototype for a LLM based recommendation system for movies and series. 
 
-## Technologie
+## Technologie POC
 langgraph
 gradio as frontend
 
 ## APIs
 LLM: OpenAI GPT4
 Search Engine: tavily
-TMDB as Main Datasource
-
+TMDB as Main API for streamingproviders
 
 
 ## Funktionsweise
@@ -20,18 +19,17 @@ TMDB as Main Datasource
 - RetrievalAgent (ToolsUsage)
 (- RecrommendAgent)
 (- ReflectionAgent)
-
 - State
 - Memmory and Checkpoint
 - Sessionhandling
 - Shorttermmemory
 
+![alt text](graph.png)
+
+
 ## bugs
 - fallback does not work ✅ 
 - fallowup frage: und umsonst? - schlechte antwort ✅ 
-
-## testing
-- provider ändern?
 
 ## todos
 
@@ -41,12 +39,17 @@ TMDB as Main Datasource
   - wenn nur ein provider: gleich in suche einbeziehen ✅ 
   - fallbackmessage optimieren. simpel und klar mit empathie. ✅   
   - outofscope questions handeling 
-  - buy providers ebenso suchen und vorschlagen. ⛔️
-  - suche optimieren / Retrieval 
-    - mediatheken durchsuchen https://mediathekviewweb.de/#future=false
+  - integrate mediatheken ✅
   - setup rate limits (on used platforms)
   - direktlinks zu streamingprovider 
   - cover artwork 
+
+- allgemeine features nice to have: 
+  - suche optimieren / Retrieval 
+    - mediatheken durchsuchen https://mediathekviewweb.de/#future=false
+  - filtern durch mehr nachfragen ( doku / film oder serie, erwachsenencontent ja oder nein, ... )
+  - buy providers ebenso suchen und vorschlagen. ⛔️
+
 
 - fullstack app:
   - frontend (nodejs)
@@ -75,11 +78,6 @@ TMDB as Main Datasource
 - promptengineering interviewagent, komplexer gestalten
   - frag ob du mehrere filme empfehlen sollst *optional
   - fragenkatalog instruieren
-
-#### mediatheken
-  - rag pipeline suche nach keywords
-  - content laden
-  - filtern durch nachfragen ( doku / film oder serie, erwachsenencontent ja oder nein, ... )
 
 
 ## sources, tutorials
