@@ -50,43 +50,6 @@ def initialize_gpt41_model():
     return gpt41_model    
     
 
-def initialize_azmodel():
-    """
-    Initialize Azure OpenAI model once.
-    Called during graph creation to avoid repeated initialization.
-    """
-
-    # Initialize our LLM
-    #model = AzureChatOpenAI(   
-    #    api_key= os.getenv("AZURE_API_KEY"),
-    #    api_version="2025-01-01-preview",
-    #    temperature=0.3,
-    #    model="GPT4-UK",        
-    #    azure_endpoint=os.getenv("AZURE_API_BASE")        
-    #)
-    
-    
-    endpoint = os.getenv("AZURE_ENDPOINT_URL", "https://gpt4-se-dev.openai.azure.com/")
-    model_name = os.getenv("AZURE_DEPLOYMENT_NAME", "GPT-4o")
-    api_version = os.getenv("AZURE_API_VERSION", "2025-01-01-preview")
-
-    token_provider = get_bearer_token_provider(
-        DefaultAzureCredential(), 
-        "https://cognitiveservices.azure.com/.default"
-    )
-
-    az_model = AzureChatOpenAI(
-        model=model_name,
-        api_version=api_version,
-        azure_endpoint=endpoint,
-        temperature=0.3,
-        azure_ad_token_provider=token_provider
-    )
-    
-    print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
-    return az_model
-
-
 def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     """
     Logs state information before/after node execution.

@@ -50,3 +50,5 @@ Prototype for a LLM based recommendation system for movies and series.
   - fragenkatalog instruieren
 
 
+## run
+gradio frontend/gradio/app.py
