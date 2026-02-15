@@ -38,7 +38,7 @@ TMDB as Main API for streamingproviders
   - tool erweitern für serien oder filme als filterkriterium ✅
   - wenn nur ein provider: gleich in suche einbeziehen ✅ 
   - fallbackmessage optimieren. simpel und klar mit empathie. ✅   
-  - outofscope questions handeling 
+  - outofscope questions handeling ✅
   - integrate mediatheken ✅
   - setup rate limits (on used platforms)
   - direktlinks zu streamingprovider 
@@ -53,11 +53,11 @@ TMDB as Main API for streamingproviders
 
 - fullstack app:
   - frontend (nodejs)
-    - logim     
+    - login
     - streaming provider selection
     - loaading animation (no streaming)    
-    - use cookie for perovider selection    
-    - example questions as buttons
+    - use cookie for provider selection    
+    - example questions 
   - backend (fastapi with db):
     - store conversations         
     - chat history:
