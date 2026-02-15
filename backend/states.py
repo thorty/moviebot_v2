@@ -43,6 +43,10 @@ class AgentState(TypedDict):
     last_filter_results: dict  # Results from filter_streaming_providers tool
     validation_status: str  # "success" | "max_retries" | "pending"
     found_titles: list[str]  # Blacklist: All titles already found/used (prevents duplicates)
+
+    # Scope guard routing (movie/series domain check)
+    scope_status: str  # "in_scope" | "out_of_scope" | "unclear"
+    scope_reason: str
     
     # remaining_steps: Used by LangGraph to track the number of allowed steps 
     # to prevent infinite loops in cyclic graphs.

@@ -1,7 +1,5 @@
 import os
-from xml.parsers.expat import model
 import dotenv
-import time
 import json
 import re
 from typing import Any
@@ -9,11 +7,10 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
-from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt, get_content_researcher_prompt_mediatheken
+from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt, get_content_researcher_prompt_mediatheken, get_scope_guard_prompt
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from backend.tools import get_all_tools
-from langchain_core.messages import SystemMessage, AIMessage    
-from openai import AzureOpenAI  
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from backend.utils.tmdb.common import Provider, PaymentTypes
 import logging
@@ -108,6 +105,8 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     state_summary = {
         "userstreamingproviders": state.get("userstreamingproviders", []),
         "analystresult": state.get("analystresult", "")[:100] + "..." if state.get("analystresult", "") else "",
+        "scope_status": state.get("scope_status", ""),
+        "scope_reason": state.get("scope_reason", ""),
         "next_agent": state.get("next_agent", ""),
         "control_signal": state.get("control_signal", ""),
         "found_titles_count": len(found_titles),
@@ -121,6 +120,120 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     
     print(json.dumps(state_summary, indent=2, ensure_ascii=False))
     print(f"{'='*80}\n")
+
+
+def create_scope_guard(model):
+    """Factory function for pre-routing in-scope / out-of-scope requests."""
+    in_scope_pattern = re.compile(
+        r"\b(film|filme|movie|movies|serie|serien|tv\s*show|show|stream|streaming|"
+        r"netflix|disney\+?|prime|amazon\s*prime|apple\s*tv|wow|sky|ard|zdf|mediathek|"
+        r"genre|thriller|komödie|drama|sci[-\s]?fi|doku|dokumentation|anime)\b",
+        re.IGNORECASE,
+    )
+
+    media_context_pattern = re.compile(
+        r"\b(film|filme|movie|movies|serie|serien|tv\s*show|show|doku|dokumentation|"
+        r"stream|streaming|staffel|empfehl|vorschlag|anschauen|sehen)\b",
+        re.IGNORECASE,
+    )
+
+    thematic_domain_pattern = re.compile(
+        r"\b(finanz|börse|wirtschaft|geld|bank|medizin|arzt|klinik|krankenhaus|"
+        r"anwalt|kanzlei|gericht|justiz|recht)\b",
+        re.IGNORECASE,
+    )
+
+    strong_out_of_scope_pattern = re.compile(
+        r"\b(code|python|javascript|bug|debug|sql|excel|rezept|kochen|wetter|mathe|"
+        r"gleichung|algebra|integral|ableitung|hausaufgabe|lebenslauf|bewerbung|"
+        r"übersetz|translate)\b",
+        re.IGNORECASE,
+    )
+
+    def scope_guard(state: AgentState):
+        latest_user_input = ""
+        for msg in reversed(state.get("messages", [])):
+            if hasattr(msg, "type") and msg.type == "human":
+                content = msg.content if hasattr(msg, "content") else ""
+                latest_user_input = content if isinstance(content, str) else str(content)
+                break
+
+        if not latest_user_input:
+            return {
+                "scope_status": "in_scope",
+                "scope_reason": "no_user_message",
+                "next_agent": "interest_analyst",
+            }
+
+        has_in_scope = bool(in_scope_pattern.search(latest_user_input))
+        has_media_context = bool(media_context_pattern.search(latest_user_input))
+        has_thematic_domain = bool(thematic_domain_pattern.search(latest_user_input))
+        has_strong_out_of_scope = bool(strong_out_of_scope_pattern.search(latest_user_input))
+
+        # Allow topic-domain requests when they are clearly about media content
+        # e.g. "Finanzdokus", "medizinische Dokus", "Anwaltsserien"
+        if has_media_context and (has_in_scope or has_thematic_domain):
+            return {
+                "scope_status": "in_scope",
+                "scope_reason": "media_context_with_thematic_domain",
+                "next_agent": "interest_analyst",
+            }
+
+        if has_in_scope and not has_strong_out_of_scope:
+            return {
+                "scope_status": "in_scope",
+                "scope_reason": "keyword_in_scope",
+                "next_agent": "interest_analyst",
+            }
+
+        if has_strong_out_of_scope and not has_in_scope and not has_media_context:
+            return {
+                "scope_status": "out_of_scope",
+                "scope_reason": "keyword_out_of_scope",
+                "next_agent": "out_of_scope_response",
+            }
+
+        sys_msg = SystemMessage(content=get_scope_guard_prompt())
+        classifier_input = HumanMessage(content=latest_user_input)
+        response = model.invoke([sys_msg, classifier_input])
+        label = (response.content if isinstance(response.content, str) else str(response.content)).strip().lower()
+
+        if "out_of_scope" in label:
+            return {
+                "scope_status": "out_of_scope",
+                "scope_reason": "llm_classifier",
+                "next_agent": "out_of_scope_response",
+            }
+
+        if "unclear" in label:
+            return {
+                "scope_status": "unclear",
+                "scope_reason": "llm_classifier",
+                "messages": [AIMessage(content="Soll ich dir bei Film- oder Serienempfehlungen helfen? Wenn du mir sagst, worauf du Lust hast, suche ich dir was raus 🎥 🍿")],
+                "next_agent": "__END__",
+            }
+
+        return {
+            "scope_status": "in_scope",
+            "scope_reason": "llm_classifier",
+            "next_agent": "interest_analyst",
+        }
+
+    return scope_guard
+
+
+def out_of_scope_response(state: AgentState):
+    """Friendly response for requests outside movie/series recommendation scope."""
+    response_msg = AIMessage(
+        content=(
+            "Da bin ich leider raus 😅 – aber bei Filmen und Serien kenn ich mich richtig gut aus!"
+            "Sag mir einfach, worauf du Lust hast und ich finde was Passendes." 🎥 🍿
+        )
+    )
+    return {
+        "messages": [response_msg],
+        "next_agent": "__END__",
+    }
 
 def result_validator(state: AgentState):
     """
@@ -218,7 +331,8 @@ def analyst_output_validator(state: AgentState):
     
     last_message = state["messages"][-1]
     content = last_message.content if hasattr(last_message, 'content') else str(last_message)
-    content_lower = content.lower()
+    content_str = content if isinstance(content, str) else str(content)
+    content_lower = content_str.lower()
     
     # Define forbidden patterns that indicate direct movie recommendations
     forbidden_patterns = [
@@ -237,7 +351,7 @@ def analyst_output_validator(state: AgentState):
     # Additional check: Does content look like a movie list?
     # (Multiple bullet points or numbered items without #FINISHED#)
     looks_like_movie_list = (
-        (content.count('\n-') > 2 or content.count('\n•') > 2 or content.count('\n1.') > 0)
+        (content_str.count('\n-') > 2 or content_str.count('\n•') > 2 or content_str.count('\n1.') > 0)
         and '#finished#' not in content_lower
     )
     
@@ -384,7 +498,7 @@ def create_content_researcher(model):
         response = model_with_searchtools.invoke([sys_msg] + state["messages"])
         
         # ALWAYS add response to messages first (for tools_condition to work)
-        result = {
+        result: dict[str, Any] = {
             "messages": [response]
         }
         
@@ -493,6 +607,8 @@ def create_graph():
     workflow = StateGraph(AgentState)
 
     # Create nodes with model closure (no re-initialization)
+    workflow.add_node("scope_guard", create_scope_guard(model_gpt4omini))
+    workflow.add_node("out_of_scope_response", out_of_scope_response)
     workflow.add_node("interest_analyst", create_interest_analyst(model_gpt4omini))
     workflow.add_node("analyst_output_validator", analyst_output_validator)
     workflow.add_node("content_researcher", create_content_researcher(model_gpt41))
@@ -501,7 +617,18 @@ def create_graph():
     workflow.add_node("fallback_response", fallback_response)
     
     # Entry Point definieren
-    workflow.set_entry_point("interest_analyst")
+    workflow.set_entry_point("scope_guard")
+
+    # Scope Guard → Interest Analyst oder Out-of-scope response oder END (unclear)
+    workflow.add_conditional_edges(
+        "scope_guard",
+        lambda state: state.get("next_agent", "interest_analyst"),
+        {
+            "interest_analyst": "interest_analyst",
+            "out_of_scope_response": "out_of_scope_response",
+            "__END__": END,
+        }
+    )
 
     # Interest Analyst → Validator (IMMER zur Validierung)
     workflow.add_edge("interest_analyst", "analyst_output_validator")
@@ -544,6 +671,9 @@ def create_graph():
     
     # Fallback Response → END
     workflow.add_edge("fallback_response", END)
+
+    # Out-of-scope response → END
+    workflow.add_edge("out_of_scope_response", END)
 
     # Graph mit dem in-memory Checkpoint kompilieren
     memory = MemorySaver()
