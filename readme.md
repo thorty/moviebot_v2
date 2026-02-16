@@ -146,3 +146,26 @@ Backend als echte FastAPI-App mit stabilem Health-Endpoint bereitstellen.
 ### Verifikation
 1. `curl http://localhost:8000/health`
 2. Erwartung: JSON mit `status=ok` und `service=moviebot-backend`
+
+## Task 4 Runbook (Produktives Frontend-Grundgerüst)
+
+### Ziel
+`frontend/web` als produktiven Frontend-Pfad bereitstellen und Prototyp klar als UI-Quelle abgrenzen.
+
+### Umsetzung
+- `frontend/web` enthält eine lauffähige React/TypeScript-App (Vite).
+- Kern-Chat-UI aus Prototyp portiert: Layout, Input, Message-Liste, Beispiel-Prompts, Filterpanel.
+- Kein produktiver Laufzeitpfad über `plans/moviebot-web-app`.
+
+### Start/Update
+1. `docker compose up -d --force-recreate frontend-web`
+2. `docker compose ps`
+
+### Verifikation
+1. `curl http://localhost:3000`
+2. Erwartung: HTML-Antwort (Frontend erreichbar)
+3. Optional: im Browser `http://localhost:3000` öffnen und UI prüfen
+
+### Klare Abgrenzung
+- Prototyp (`plans/moviebot-web-app`) ist Referenz.
+- Produktive Laufzeit-App ist ausschließlich `frontend/web`.
