@@ -1,5 +1,27 @@
 # Sprint Cut Deliverables (Task-basiert)
 
+## Lernmodus (verbindlich für die Umsetzung)
+
+### Arbeitsweise
+- Tasks werden strikt nacheinander umgesetzt (Task 1 → Task 2 → …).
+- Ein neuer Task startet erst, wenn der Validierungs-Gate des vorherigen Tasks bestanden ist.
+- Nach jedem abgeschlossenen Task wird eine Lern-Doku für Junior-Entwickler erstellt.
+
+### Pflicht-Dokumentation pro Task
+- Ablageort: `docs/tasks/`
+- Dateiname: `task-XX.md` (z. B. `task-01.md`, `task-02.md`)
+- Pflichtinhalt je Datei:
+  - Kurzüberblick: Was wurde gebaut?
+  - Erklärung für Junior Dev: Warum ist das wichtig und wie funktioniert es einfach erklärt?
+  - Manuelle Schritte: Was muss lokal manuell gemacht werden?
+  - Testanleitung: Wie wird genau dieser Task geprüft (Commands + erwartetes Ergebnis)?
+  - Troubleshooting: Häufige Fehler + schnelle Lösung
+
+### Abnahmeregel für Lernmodus
+- Ein Task gilt erst als vollständig abgeschlossen, wenn
+  1) der technische Gate bestanden ist und
+  2) die zugehörige `docs/tasks/task-XX.md` vollständig vorliegt.
+
 ## Task 1 — Lokale Infrastruktur starten
 
 ### Ziel
@@ -109,7 +131,7 @@ Login-Status im produktiven Frontend nutzbar machen (Auth-Gate-Basis).
 ## Task 6 — DB-Basisschema versionieren
 
 ### Ziel
-SPersistente Grundlage für Conversations und vollständige Nachrichtenhistorie schaffen.
+Persistente Grundlage für Conversations und vollständige Nachrichtenhistorie schaffen.
 
 ### Scope
 - SQL-Migrationen für Conversations/Logs anlegen
@@ -263,5 +285,6 @@ Review-fähige Abnahme mit dokumentiertem Happy Path und Negativtests.
 - [ ] Subtask 8.2 bestanden: Alle User-Eingaben und Bot-Antworten werden append-only gespeichert (kein Überschreiben)
 - [ ] Task 9 bestanden: Produktives Frontend nutzt keine Next-Prototyp-API-Route (`app/api/chat/route.ts`)
 - [ ] Task 10 bestanden: Voller lokaler E2E-Flow inkl. Negativtests läuft reproduzierbar
+- [ ] Für jeden abgeschlossenen Task existiert eine vollständige Lerndoku unter `docs/tasks/task-XX.md`
 - [ ] MVP-Non-Goals wurden nicht implementiert
 - [ ] Readme/Testpfad ist für Product + Engineering nachvollziehbar
