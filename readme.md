@@ -128,3 +128,21 @@ Eine zentrale und reproduzierbare Env-Konfiguration ohne versteckte Defaults.
 ### Verifikation
 1. `.env.example` enthält alle Pflichtvariablen.
 2. Nach `cp .env.example .env` startet Compose weiter ohne zusätzliche implizite Werte.
+
+## Task 3 Runbook (FastAPI + Health)
+
+### Ziel
+Backend als echte FastAPI-App mit stabilem Health-Endpoint bereitstellen.
+
+### Umsetzung
+- `main.py` enthält `app = FastAPI(...)`
+- Health-Route: `GET /health`
+- Compose-Backend startet via `uvicorn main:app --host 0.0.0.0 --port 8000`
+
+### Start/Update
+1. `docker compose up -d --build backend`
+2. `docker compose ps`
+
+### Verifikation
+1. `curl http://localhost:8000/health`
+2. Erwartung: JSON mit `status=ok` und `service=moviebot-backend`

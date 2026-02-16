@@ -1,6 +1,15 @@
-def main():
-    print("Hello from mb-langgraph-v3!")
+from datetime import datetime, timezone
+
+from fastapi import FastAPI
 
 
-if __name__ == "__main__":
-    main()
+app = FastAPI(title="Moviebot API", version="0.1.0")
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {
+        "status": "ok",
+        "service": "moviebot-backend",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
