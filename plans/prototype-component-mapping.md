@@ -3,6 +3,12 @@
 ## Ziel
 Konkreter Umzugsplan für den Design-Prototyp unter `plans/moviebot-web-app` in ein produktives Frontend (MVP), ohne Scope-Erweiterung.
 
+## Verbindliche Entscheidungen (für diesen Sprint)
+- Produktives Frontend-Ziel ist `frontend/web/`.
+- Prototyp unter `plans/moviebot-web-app` ist UI/UX-Quelle, kein produktiver Laufzeitpfad.
+- `plans/moviebot-web-app/app/api/chat/route.ts` wird nicht produktiv verwendet.
+- Produktiver Chat-Transport geht direkt an FastAPI-Backend mit JWT im Bearer-Header.
+
 ## Annahmen (MVP)
 - Produktives Frontend wird als React/TypeScript App unter `frontend/web/` aufgebaut.
 - Supabase Auth steuert den Zugriff (Login-Gate).
@@ -36,6 +42,8 @@ Konkreter Umzugsplan für den Design-Prototyp unter `plans/moviebot-web-app` in 
 | Request enthält `messages` + `filters` | MVP-Request auf Backend-Vertrag abbilden (`message`, `provider_mode`, `payment_types`) |
 | KI-Antwort wird in Next-Route generiert | Antwort kommt ausschließlich aus FastAPI/LangGraph |
 
+Hinweis: Die konkrete produktive Endpoint-URL wird im Backend-Vertrag festgelegt; wichtig ist, dass kein Next-internal Proxy im MVP verwendet wird.
+
 ## Auth-Mapping (kritisch)
 | Prototyp | Produktiv |
 |---|---|
@@ -61,9 +69,9 @@ Empfohlene Mapping-Tabelle (Start):
 
 ## Reihenfolge für die Umsetzung
 1. Grundgerüst `frontend/web/` anlegen (React/TS, Routing, Basis-Styles).
-2. Chat-UI-Komponenten aus Prototyp übernehmen (ohne API/Auth zuerst nur statisch).
+2. Chat-UI-Komponenten aus Prototyp übernehmen (zuerst ohne produktive API-Logik).
 3. Auth einbauen (Login-Seite, Guard, Session-Verwaltung).
-4. API-Client gegen FastAPI anbinden (Next-Route vollständig entfernen).
+4. API-Client gegen FastAPI anbinden (keine Nutzung von `app/api/chat/route.ts`).
 5. Filter-Provider-Mapping zentralisieren und in Request-Builder verwenden.
 6. E2E testen: Login → Chat → Antwort → Fehlerpfade.
 

@@ -1,137 +1,267 @@
-# Sprint Cut Deliverables (Tag 1–3)
+# Sprint Cut Deliverables (Task-basiert)
 
-## Tag 1
+## Task 1 — Lokale Infrastruktur starten
 
-### Ziel des Tages
-Lokale Fullstack-Basis und Auth-Grundfluss stabil bereitstellen, damit ab Tag 2 Backend-Regeln sauber integriert werden können.
+### Ziel
+Reproduzierbares lokales Startfundament mit Docker Compose und Supabase Local Stack herstellen.
 
-### Technische Aufgaben
-- Docker-Compose-Setup für lokales E2E prüfen/ergänzen (Backend, Frontend, Supabase lokal)
-- Env-Handling für lokale Supabase-URLs/Keys vereinheitlichen
-- Frontend-Basisfluss für Supabase Auth vorbereiten (Login-Status nutzbar im App-Flow)
-- Design-Prototyp unter `plans/moviebot-web-app` als UI-Basis einplanen (Komponenten, Layout, Filter, Loading)
-- Technische Entscheidung dokumentieren: Prototyp ist nutzbar, aber nicht direkt deploybar ohne Auth + Backend-API-Umstellung
-- DB-Basisschema für Conversations/Logs als MVP-Grundlage festlegen
+### Scope
+- `docker-compose.yml` erstellen/ergänzen (Backend, `frontend/web`, Supabase lokal)
+- lokale Startreihenfolge und Restart-Hinweise dokumentieren
 
-### Dateiziele (specific repo paths)
-- `docker-compose.yml` (neu oder erweitern, falls vorhanden)
-- `.env.example` (neu oder aktualisiert)
-- `readme.md` (lokale Start-/Setup-Schritte präzisieren)
-- `frontend/` (Auth-Einstiegspunkt und Konfiguration, z. B. App-Start + Supabase-Client)
-- `plans/moviebot-web-app/app/page.tsx` (Referenz für Chat-UX/Struktur)
-- `plans/moviebot-web-app/components/` (Referenz für wiederverwendbare UI-Bausteine)
-- `plans/moviebot-web-app/app/api/chat/route.ts` (ersetzen durch produktive Backend-Anbindung)
-- `plans/prototype-component-mapping.md` (verbindliche Umzugsmatrix Prototyp → Produktiv)
-- `backend/utils/setupenv.py` (Env-Ladepfad für lokale Services)
-- `backend/` (Migrations-/Schema-Referenz, falls im Repo so abgelegt)
+### Dateiziele
+- `docker-compose.yml`
+- `readme.md`
 
-### Abnahmekriterien
-- Alle relevanten Container starten lokal ohne manuelle Sonderwege
-- Frontend kann Auth-Status ermitteln (eingeloggt/nicht eingeloggt)
-- Prototyp-Übernahme ist entschieden: UI ja, API-Route nein
-- DB-Struktur für “1 aktive Conversation” und minimales Logging ist definiert
-- Dokumentation für lokalen Start ist für Team nachvollziehbar
+### Validierung (Gate)
+- `docker compose up` startet alle relevanten Services ohne Sonderwege
 
-### Test/Verifikation
-- `docker compose up` läuft lokal stabil
-- Health-Check auf Backend-Endpunkt erfolgreich
-- Manueller Login/Logout-Smoke-Test im Frontend
-- Sichtprüfung: notwendige Tabellen/Constraints vorhanden
+---
 
-### Risiken & Fallback
+## Task 2 — Env-Standardisierung
+
+### Ziel
+Einheitliche und vollständige Konfiguration für lokale Entwicklung sicherstellen.
+
+### Scope
+- `.env.example` als verbindliche Liste der Pflichtvariablen pflegen
+- Env-Ladepfad für Supabase/JWT im Backend vereinheitlichen
+
+### Dateiziele
+- `.env.example`
+- `backend/utils/setupenv.py`
+- `readme.md`
+
+### Validierung (Gate)
+- Alle benötigten Variablen sind dokumentiert; lokaler Start gelingt ohne implizite Default-Werte
+
+---
+
+## Task 3 — FastAPI-Grundgerüst + Health
+
+### Ziel
+Produktiver API-Einstiegspunkt für die weiteren Backend-Regeln bereitstellen.
+
+### Scope
+- FastAPI `app` in `main.py`
+- `GET /health` als stabiler technischer Check
+
+### Dateiziele
+- `main.py`
+
+### Validierung (Gate)
+- Health-Check auf `GET /health` ist lokal erfolgreich
+
+---
+
+## Task 4 — Produktives Frontend-Grundgerüst
+
+### Ziel
+Ein eigenständiges produktives Frontend unter `frontend/web` anlegen; Prototyp-Code wird nicht als Laufzeit-App verwendet.
+
+### Scope
+- `frontend/web` als eigenständigen App-Pfad initialisieren (eigene Laufzeit, eigene Konfiguration)
+- UI/UX aus `plans/moviebot-web-app` als Quelle nutzen und in `frontend/web` portieren (Komponenten/Layout/Styles)
+- Prototyp bleibt Referenz und wird nicht als produktive App gestartet oder weiterbetrieben
+
+### Nicht im Scope (verbindlich)
+- Kein produktiver Betrieb aus `plans/moviebot-web-app`
+- Keine produktive Nutzung von `plans/moviebot-web-app/app/api/chat/route.ts`
+- Kein „in-place Umbau“ des Prototyps als Zielanwendung
+
+### Dateiziele
+- `frontend/web/` (produktive App-Basis vorhanden)
+- `plans/prototype-component-mapping.md` (Mapping Quelle → Ziel konkretisiert)
+- `plans/moviebot-web-app/app/api/chat/route.ts` (klar als nicht-produktiv dokumentiert)
+
+### Validierung (Gate)
+- In der Doku ist explizit festgehalten: Prototyp = Quelle, `frontend/web` = einzig produktiver Frontend-Pfad
+- `frontend/web` ist lauffähig als eigener App-Startpunkt
+- Es gibt keinen produktiven Pfad, der `app/api/chat/route.ts` aus dem Prototyp nutzt
+
+---
+
+## Task 5 — Frontend Auth-Basis
+
+### Ziel
+Login-Status im produktiven Frontend nutzbar machen (Auth-Gate-Basis).
+
+### Zeitpunkt und Ort der Nutzeranlage (verbindlich)
+- Zeitpunkt: nach Task 1/2 (lokaler Supabase-Stack + Env steht) und vor dem Login/Logout-Smoke-Test in Task 5
+- Ort: Supabase Auth, Tabelle `auth.users` (lokale Supabase-Instanz)
+- Zweck: mindestens 1 lokaler Testnutzer für reproduzierbare Login-Tests
+
+### Scope
+- Supabase Auth Client/Session-Grundfluss integrieren
+- Login-Status im App-Flow unterscheidbar machen
+- Anlageweg für Testnutzer verbindlich dokumentieren: manuelle Anlage in der lokalen Supabase-Auth (`auth.users`)
+
+### Dateiziele
+- `frontend/web/`
+- `readme.md` (kurze Schritte zur lokalen Testnutzer-Anlage)
+
+### Validierung (Gate)
+- Manueller Login/Logout-Smoke-Test erfolgreich
+- Testlogin verwendet einen in `auth.users` vorhandenen lokalen Nutzer
+
+---
+
+## Task 6 — DB-Basisschema versionieren
+
+### Ziel
+SPersistente Grundlage für Conversations und vollständige Nachrichtenhistorie schaffen.
+
+### Scope
+- SQL-Migrationen für Conversations/Logs anlegen
+- Grundlage für „1 aktive Conversation pro User“ in Schema/Constraints vorbereiten
+
+### Dateiziele
+- `supabase/migrations/` (verbindliche SQL-Migrations-/Schema-Ablage)
+
+### Validierung (Gate)
+- Notwendige Tabellen und Constraints sind in SQL-Migrationen sichtbar
+
+---
+
+## Task 7 — JWT-Guard pro Request
+
+### Ziel
+Ungeschützte Requests verhindern und User-Kontext robust herstellen.
+
+### Subtask 7.1 — Token-Validierung + Fehlerverhalten
+
+#### Scope
+- JWT-Verifikation im FastAPI-Requestpfad implementieren
+- Fehlende/ungültige Tokens sauber mit 401/403 beantworten
+
+#### Dateiziele
+- `main.py`
+- `backend/utils/helper.py`
+- `backend/utils/setupenv.py`
+
+#### Validierung (Gate)
+- Negativtests für „ohne Token“ und „ungültiger Token“ sind erfolgreich
+
+### Subtask 7.2 — User-Kontext in Backend-Flow
+
+#### Scope
+- User-Kontext aus validem Token ableiten
+- User-Kontext in Chat-/Conversation-Logik durchreichen
+
+#### Dateiziele
+- `main.py`
+- `backend/graph.py`
+- `backend/states.py` (falls State-Felder angepasst werden)
+
+#### Validierung (Gate)
+- Positivtest mit validem Token zeigt eindeutige User-Identifikation im Request-Flow
+
+---
+
+## Task 8 — Genau 1 aktive Conversation + vollständige Nachrichtenpersistenz
+
+### Ziel
+Kern-Datenregel und vollständige, append-only Nachrichtenpersistenz technisch erzwingen.
+
+### Subtask 8.1 — 1 aktive Conversation pro User
+
+#### Scope
+- Regel „genau 1 aktive Conversation pro User“ in Persistenz + Service-Logik absichern
+- DB-Constraint und transaktionalen Upsert-Pfad verbindlich kombinieren
+
+#### Dateiziele
+- `backend/graph.py`
+- `backend/states.py`
+- `tests/`
+
+#### Validierung (Gate)
+- Zweiter Start derselben User-Conversation erzeugt keine parallele aktive Conversation
+
+### Subtask 8.2 — Vollständige, append-only Nachrichtenpersistenz
+
+#### Scope
+- Alle User-Eingaben und Bot-Antworten pro Conversation vollständig persistieren
+- Bestehende Nachrichten dürfen nicht überschrieben werden; neue Nachrichten werden append-only gespeichert
+
+#### Dateiziele
+- `backend/graph.py`
+- `backend/states.py`
+- `tests/`
+
+#### Validierung (Gate)
+- Persistenz enthält alle User-Eingaben und alle Bot-Antworten der Conversation
+- Bei Folgeanfragen bleiben bestehende Nachrichten unverändert erhalten (kein Überschreiben)
+
+---
+
+## Task 9 — Produktiver API-Transport im Frontend
+
+### Ziel
+Frontend vollständig auf produktiven Backend-Endpoint umstellen.
+
+### Scope
+- Keine Nutzung von `app/api/chat/route.ts` im produktiven Flow
+- Transport direkt gegen den produktiven Backend-Endpoint
+- Request/Response strikt am produktiven Backend-Vertrag ausrichten
+- Verbindlicher Endpoint für MVP: `POST /api/v1/chat`
+- Auth-Header für geschützte Requests: `Authorization: Bearer <JWT>`
+
+### Dateiziele
+- `frontend/web/`
+- `readme.md` (API-Endpoint und erwartetes Request/Response-Format dokumentiert)
+
+### Validierung (Gate)
+- Frontend sendet nur an produktiven Backend-Pfad
+- Request/Response im Frontend entsprechen dem produktiven Backend-Vertrag
+- Chat-Request aus dem Frontend geht an `POST /api/v1/chat` und enthält gültigen Bearer-Token
+
+---
+
+## Task 10 — E2E-Härtung + Übergabe
+
+### Ziel
+Review-fähige Abnahme mit dokumentiertem Happy Path und Negativtests.
+
+### Scope
+- E2E-Durchlauf: Auth → Chat → Antwort → Persistenz/Logging
+- Negativfälle: ohne Token, ungültiger Token, paralleler Conversation-Start
+- Dokumentation und Restpunkte ohne Scope-Erweiterung finalisieren
+
+### Dateiziele
+- `tests/`
+- `readme.md`
+- `todos.md`
+
+### Validierung (Gate)
+- Voller lokaler E2E-Flow reproduzierbar
+- Review-Checkliste vollständig mit „ok“
+
+---
+
+## Risiken & Fallback (übergreifend)
 - Risiko: Inkonsistente lokale Env-Werte  
   Fallback: zentrale `.env.example` + klare Pflichtvariablen im Readme
 - Risiko: Supabase lokal startet unzuverlässig  
   Fallback: reproduzierbarer Restart-Ablauf dokumentieren
-
----
-
-## Tag 2
-
-### Ziel des Tages
-Backend-seitige Sicherheits- und Datenregeln für MVP umsetzen: JWT-Verifikation je Request, 1 aktive Conversation pro User, minimales Logging.
-
-### Technische Aufgaben
-- JWT-Verifikation gegen Supabase im FastAPI-Requestpfad erzwingen
-- User-Kontext aus Token ableiten und in Chat-/Conversation-Logik verwenden
-- Regel “genau 1 aktive Conversation pro User” in Persistenz + Service-Logik absichern
-- Logging strikt auf zwei Felder reduzieren: User-Query und finale Antwort
-- Frontend-Transport vom Prototypen (`/api/chat`) auf produktiven Backend-Endpoint umstellen
-- Unerlaubte/ungültige Requests sauber mit 401/403 behandeln
-
-### Dateiziele (specific repo paths)
-- `main.py` (Auth-abhängige API-Integration)
-- `backend/graph.py` (User-Kontext/Conversation-Anbindung im Ablauf)
-- `backend/states.py` (State-Felder für minimales Logging und aktive Conversation)
-- `backend/tools.py` (nur falls für persistente Operations nötig)
-- `backend/utils/helper.py` (Hilfsfunktionen für Auth/Conversation-Zugriff)
-- `backend/utils/setupenv.py` (JWT-/Supabase-Settings)
-- `plans/moviebot-web-app/app/page.tsx` (API-Request-Struktur als Vorlage für Frontend-Integration)
-- `tests/` (gezielte Tests für Auth-Guard, 1-Conversation-Regel, Logging-Reduktion)
-
-### Abnahmekriterien
-- Jede geschützte Request scheitert ohne valides JWT
-- Mit validem JWT ist User eindeutig auf Backend-Seite identifizierbar
-- Pro User existiert gleichzeitig nur eine aktive Conversation
-- Persistierte Logs enthalten ausschließlich Query + finale Antwort
-
-### Test/Verifikation
-- Positive/negative API-Tests auf Auth-Guard
-- Testfall: zweiter Start derselben User-Conversation reaktiviert/ersetzt statt parallel
-- Testfall: Log-Record enthält keine zusätzlichen sensiblen Felder
-- Testfall: Frontend sendet nicht mehr an Next-Prototyp-Route, sondern an produktiven Backend-Pfad
-- Manueller API-Smoke-Test via lokaler Umgebung
-
-### Risiken & Fallback
-- Risiko: Token-Validierung schlägt lokal wegen Konfigurationsabweichung fehl  
-  Fallback: dedizierter Debug-Endpoint nur lokal, danach wieder entfernen
-- Risiko: Race-Condition bei “1 aktive Conversation”  
-  Fallback: DB-seitige Constraint + transaktionaler Upsert-Pfad
-
----
-
-## Tag 3
-
-### Ziel des Tages
-End-to-End-Verifikation, Stabilisierung und review-fähige Übergabe des MVP-Scope.
-
-### Technische Aufgaben
-- E2E-Durchlauf lokal: Auth → Chat-Request → Antwort → minimales Logging
-- Fehlerfälle verifizieren (abgelaufenes JWT, unauthenticated access, doppelte aktive Conversation)
-- Dokumentation finalisieren (Start, Testpfad, bekannte Grenzen)
-- Offene Kanten glätten, ohne Scope zu erweitern
-
-### Dateiziele (specific repo paths)
-- `readme.md` (finaler lokaler E2E-Runbook-Abschnitt)
-- `tests/` (stabile Smoke-/Integrationsfälle für MVP-Kernregeln)
-- `frontend/gradio/readme.md` (falls Frontend-spezifische Startschritte nötig)
-- `plans/moviebot-web-app/` (als Design-Referenz klar als „Prototype only“ markieren)
-- `todos.md` (nur MVP-relevante Restpunkte klar markieren)
-
-### Abnahmekriterien
-- Voller lokaler E2E-Flow läuft reproduzierbar durch
-- Sicherheits- und Datenregeln aus Entscheidungen sind nachweisbar erfüllt
-- Dokumentation erlaubt Onboarding ohne mündliche Zusatzinfos
-- Kein Scope-Drift gegenüber MVP-Minimalvorgaben
-
-### Test/Verifikation
-- End-to-End Smoke: Login, Chat, Antwort, Persistenzprüfung
-- Negativtests: ohne Token, mit ungültigem Token, parallele aktive Conversation
-- Team-Review mit Review-Checkliste abgeschlossen
-
-### Risiken & Fallback
+- Risiko: Race-Condition bei „1 aktive Conversation“  
+  Fallback: DB-Constraint + transaktionaler Upsert-Pfad
 - Risiko: Letzte Integrationsfehler zwischen Frontend/Auth/Backend  
-  Fallback: harte Priorisierung auf Kernpfad, nicht-kritische Teile auf nachgelagerten Sprint
-- Risiko: Dokumentationslücken  
-  Fallback: kurzes “Happy Path + Known Limitations” Minimaldokument erzwingen
+  Fallback: Priorisierung auf Kernpfad, nicht-kritische Punkte in `todos.md`
 
 ---
 
 ## Review-Checkliste
-- [ ] Lokales Setup startet mit `docker compose up` ohne Sondertricks
-- [ ] Supabase Auth ist aktiv und Backend prüft JWT pro Request
-- [ ] Genau 1 aktive Conversation pro User ist technisch erzwungen
-- [ ] Logs enthalten nur User-Query und finale Antwort
-- [ ] Design-Prototyp wurde korrekt eingeordnet: UI-Basis nutzbar, API/Login produktiv neu integriert
+- [ ] Task 1 bestanden: Lokales Setup startet mit `docker compose up` ohne Sondertricks
+- [ ] Task 2 bestanden: `.env.example` und Env-Ladepfad sind vollständig und konsistent
+- [ ] Task 3 bestanden: `GET /health` ist lokal stabil erreichbar
+- [ ] Task 4 bestanden: `frontend/web` ist der einzige produktive Frontend-Pfad; Prototyp wird nur als UI-Quelle genutzt (kein Laufzeitbetrieb)
+- [ ] Task 5 bestanden: Login/Logout-Smoke-Test im produktiven Frontend erfolgreich (mit lokalem Testnutzer aus `auth.users`)
+- [ ] Task 6 bestanden: SQL-Migrationen enthalten Tabellen/Constraints für Conversations und Logs
+- [ ] Subtask 7.1 bestanden: Ohne/ungültiges JWT wird zuverlässig mit 401/403 blockiert
+- [ ] Subtask 7.2 bestanden: Valides JWT liefert eindeutigen User-Kontext im Request-Flow
+- [ ] Subtask 8.1 bestanden: Pro User existiert gleichzeitig nur 1 aktive Conversation
+- [ ] Subtask 8.2 bestanden: Alle User-Eingaben und Bot-Antworten werden append-only gespeichert (kein Überschreiben)
+- [ ] Task 9 bestanden: Produktives Frontend nutzt keine Next-Prototyp-API-Route (`app/api/chat/route.ts`)
+- [ ] Task 10 bestanden: Voller lokaler E2E-Flow inkl. Negativtests läuft reproduzierbar
 - [ ] MVP-Non-Goals wurden nicht implementiert
 - [ ] Readme/Testpfad ist für Product + Engineering nachvollziehbar
