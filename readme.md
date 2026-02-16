@@ -18,7 +18,7 @@ Aktuell läuft ein POC mit LangGraph + Gradio. Parallel ist die Migration zu ein
 
 ## Verbindliche MVP-Entscheidungen
 - Supabase Auth + JWT-Verifikation im Backend pro Request
-- Logging nur User-Query + finale Antwort
+- Persistenz speichert alle User-Eingaben und Bot-Antworten append-only (kein Überschreiben)
 - Genau 1 aktive Conversation pro User
 - Keine Zusatzfeatures außerhalb der Plan-Dokumente
 
@@ -73,3 +73,27 @@ Einordnung:
 - Backend (Zielpfad): `uvicorn main:app --reload`
 - Frontend (Zielpfad): `npm run dev`
 - Docker: `docker compose up`
+
+## Task 1 Runbook (lokale Infrastruktur)
+
+### Enthaltene Services in `docker-compose.yml`
+- `backend` auf Port `8000` (Task-1 Platzhalter-Service)
+- `frontend-web` auf Port `3000` (läuft als Platzhalter bis Task 4)
+- `supabase-db` auf Port `54322`
+
+### Start
+1. `docker compose up -d`
+2. `docker compose ps`
+3. `docker compose logs --tail=100`
+
+### Restart-Ablauf (reproduzierbar)
+1. `docker compose down`
+2. `docker compose up -d`
+3. Falls nötig mit frischem Volume-Start: `docker compose down -v && docker compose up -d`
+
+### Health-/Status-Checks
+- Backend erreichbar: `curl http://localhost:8000`
+- Containerstatus prüfen: `docker compose ps`
+
+### Hinweis für Task 4
+Der Service `frontend-web` bleibt in Task 1 absichtlich als Platzhalter aktiv. Sobald `frontend/web/package.json` existiert, startet derselbe Service automatisch die echte Web-App.

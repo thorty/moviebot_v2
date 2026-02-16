@@ -1,0 +1,51 @@
+name: moviebot-local
+
+services:
+  backend:
+    image: python:3.12-slim
+    container_name: moviebot-backend
+    working_dir: /workspace
+    command: sh -c "python -m http.server 8000"
+    volumes:
+      - ./:/workspace
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend-web:
+    image: node:20-alpine
+    container_name: moviebot-frontend-web
+    working_dir: /workspace/frontend/web
+    command: sh -c "if [ -f package.json ]; then npm install && npm run dev -- --host 0.0.0.0 --port 3000; else echo 'frontend/web not initialized yet (Task 4). Keeping container alive for Task 1.'; tail -f /dev/null; fi"
+    volumes:
+      - ./:/workspace
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  supabase-db:
+    image: postgres:15-alpine
+    container_name: moviebot-supabase-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "54322:5432"
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  supabase_db_data:
