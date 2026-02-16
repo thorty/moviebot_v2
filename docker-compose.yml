@@ -22,7 +22,10 @@ services:
     image: node:20-alpine
     container_name: moviebot-frontend-web
     working_dir: /workspace/frontend/web
-    command: sh -c "if [ -f package.json ]; then npm install && npm run dev -- --host 0.0.0.0 --port 3000; else echo 'frontend/web not initialized yet (Task 4). Keeping container alive for Task 1.'; tail -f /dev/null; fi"
+    environment:
+      VITE_SUPABASE_URL: ${SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+    command: sh -c "if [ -f package.json ]; then if [ -f .env ]; then set -a; . ./.env; set +a; fi; npm install && npm run dev -- --host 0.0.0.0 --port 3000; else echo 'frontend/web not initialized yet (Task 4). Keeping container alive for Task 1.'; tail -f /dev/null; fi"
     volumes:
       - ./:/workspace
     ports:

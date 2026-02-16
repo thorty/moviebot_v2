@@ -26,6 +26,7 @@ Aktuell läuft ein POC mit LangGraph + Gradio. Parallel ist die Migration zu ein
 - Sprint-Übersicht: [plans/sprint-cut-overview.md](plans/sprint-cut-overview.md)
 - Sprint-Deliverables: [plans/sprint-cut-deliverables.md](plans/sprint-cut-deliverables.md)
 - Prototyp-Mapping: [plans/prototype-component-mapping.md](plans/prototype-component-mapping.md)
+- Start/Stop + Cloud-Kurzpfad: [docs/start-stop-spickzettel.md](docs/start-stop-spickzettel.md)
 
 ## Design-Prototyp Frontend
 Unter [plans/moviebot-web-app](plans/moviebot-web-app) liegt ein vollständiger UI-Prototyp (ohne Login-Seite).
@@ -146,6 +147,32 @@ Backend als echte FastAPI-App mit stabilem Health-Endpoint bereitstellen.
 ### Verifikation
 1. `curl http://localhost:8000/health`
 2. Erwartung: JSON mit `status=ok` und `service=moviebot-backend`
+
+## Task 5 Runbook (Frontend Auth-Basis)
+
+### Ziel
+Login-Status im produktiven Frontend nutzbar machen (eingeloggt/nicht eingeloggt).
+
+### Konfiguration
+- Docker-Flow: `frontend-web` übernimmt `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY` aus Compose-Umgebung.
+- Lokaler npm-Flow: `frontend/web/.env.example` nach `frontend/web/.env.local` kopieren.
+
+### Testnutzer anlegen
+Zeitpunkt: nach Task 1/2 und vor Login-Smoke-Test.
+
+Anlage in Supabase Auth (`auth.users`):
+1. Supabase Studio öffnen (oder verwendete Supabase-Instanz)
+2. Auth → Users → User manuell anlegen
+3. E-Mail + Passwort für Testnutzer setzen
+
+### Login/Logout Smoke-Test
+1. `docker compose up -d --force-recreate frontend-web`
+2. `curl -sS http://localhost:3000 | head -n 5`
+3. Browser: `http://localhost:3000` öffnen
+4. Mit Testnutzer einloggen
+5. Prüfen: Chat-Seite erscheint + E-Mail/Logout sichtbar
+6. Logout klicken
+7. Prüfen: Login-Form erscheint wieder
 
 ## Task 4 Runbook (Produktives Frontend-Grundgerüst)
 

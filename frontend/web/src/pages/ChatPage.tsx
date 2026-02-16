@@ -16,7 +16,12 @@ const DEFAULT_FILTERS: Filters = {
 const assistantAnswer =
   "Task 4 Platzhalter-Antwort: UI ist aus dem Prototyp portiert. API-Transport folgt in Task 9."
 
-export function ChatPage() {
+type ChatPageProps = {
+  userEmail?: string
+  onLogout?: () => void
+}
+
+export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const [input, setInput] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -95,6 +100,21 @@ export function ChatPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {userEmail && (
+            <span className="hidden max-w-[220px] truncate rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground md:block">
+              {userEmail}
+            </span>
+          )}
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/80 hover:text-foreground"
+            >
+              Logout
+            </button>
+          )}
+
           <button
             onClick={() => setFiltersOpen((current) => !current)}
             className={cn(
