@@ -31,24 +31,3 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
-
-  supabase-db:
-    image: postgres:15-alpine
-    container_name: moviebot-supabase-db
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-    ports:
-      - "54322:5432"
-    volumes:
-      - supabase_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    restart: unless-stopped
-
-volumes:
-  supabase_db_data:

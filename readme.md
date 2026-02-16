@@ -80,7 +80,8 @@ Einordnung:
 ### Enthaltene Services in `docker-compose.yml`
 - `backend` auf Port `8000` (Task-1 Platzhalter-Service)
 - `frontend-web` auf Port `3000` (läuft als Platzhalter bis Task 4)
-- `supabase-db` auf Port `54322`
+
+Supabase lokal läuft über die Supabase CLI (`supabase start`) und stellt den kompletten lokalen Stack bereit (inkl. Postgres/Auth/Studio).
 
 ### Start
 1. `docker compose up -d`
@@ -95,6 +96,7 @@ Einordnung:
 ### Health-/Status-Checks
 - Backend erreichbar: `curl http://localhost:8000`
 - Containerstatus prüfen: `docker compose ps`
+- Supabase-Status prüfen: `supabase status -o env`
 
 ### Hinweis für Task 4
 Der Service `frontend-web` bleibt in Task 1 absichtlich als Platzhalter aktiv. Sobald `frontend/web/package.json` existiert, startet derselbe Service automatisch die echte Web-App.

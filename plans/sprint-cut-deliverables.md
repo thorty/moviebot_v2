@@ -25,10 +25,11 @@
 ## Task 1 — Lokale Infrastruktur starten
 
 ### Ziel
-Reproduzierbares lokales Startfundament mit Docker Compose und Supabase Local Stack herstellen.
+Reproduzierbares lokales Startfundament mit Docker Compose (App-Services) und Supabase CLI (lokaler Supabase-Stack) herstellen.
 
 ### Scope
-- `docker-compose.yml` erstellen/ergänzen (Backend, `frontend/web`, Supabase lokal)
+- `docker-compose.yml` erstellen/ergänzen (Backend, `frontend/web`)
+- Supabase-CLI-Startpfad für den lokalen Supabase-Stack dokumentieren
 - lokale Startreihenfolge und Restart-Hinweise dokumentieren
 
 ### Dateiziele

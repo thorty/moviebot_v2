@@ -9,13 +9,13 @@ Hinweis zur Planung: Die Umsetzung wird task-basiert geführt (nicht tag-basiert
 - Supabase Auth im Frontend + JWT-Verifikation im Backend bei jeder Request
 - Persistenz speichert alle User-Eingaben und Bot-Antworten append-only (kein Überschreiben)
 - Genau 1 aktive Conversation pro User
-- Lokaler End-to-End-Betrieb via Docker Compose zuerst
+- Lokaler End-to-End-Betrieb: App-Services via Docker Compose, Supabase-Stack via Supabase CLI
 
 ## Festgelegt für die Umsetzung
 - Produktives Frontend wird unter `frontend/web` aufgebaut; der Prototyp unter `plans/moviebot-web-app` ist reine UI/UX-Quelle.
 - Das Fundament liefert ein echtes FastAPI-Grundgerüst in `main.py` inklusive Health-Endpoint.
 - DB-Basisschema wird als SQL-Migrationen im Repository versioniert (keine rein manuelle Dashboard-Konfiguration).
-- Für lokale Infrastruktur wird der offizielle Supabase-Local-Stack in Docker Compose integriert.
+- Für lokale Infrastruktur wird der offizielle Supabase-Local-Stack via Supabase CLI betrieben (Docker-basiert).
 
 ## Timeline
 - Task-Block A (Fundament): Compose, Env-Standardisierung, FastAPI-Health, Frontend-Zielpfad, DB-Grundschema
@@ -37,7 +37,7 @@ Hinweis zur Planung: Die Umsetzung wird task-basiert geführt (nicht tag-basiert
 - Keine zusätzlichen Produktfeatures am Chat-UX
 
 ## Abhängigkeiten
-- Gültige Supabase-Konfiguration (lokal via Docker)
+- Gültige Supabase-Konfiguration (lokal via Supabase CLI)
 - API Keys/Secrets in lokaler Env-Konfiguration
 - Zielpfade für MVP sind fest: `main.py` als FastAPI-Entry, `frontend/web` als produktives Frontend
 - Team-Review-Slot am Ende von Task-Block C

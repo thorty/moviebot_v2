@@ -39,12 +39,14 @@ So hast du lokal Auth (`auth.users`), Keys (`anon`, `service_role`) und Studio i
 
 ## 4) Wichtige URLs und Keys (lokal)
 
-Nach `supabase status` bekommst du typischerweise:
+Nach `supabase status -o env` bekommst du typischerweise:
 - API URL: `http://127.0.0.1:54321`
 - Studio URL: `http://127.0.0.1:54323`
-- `anon key`
-- `service_role key`
-- `jwt secret`
+- `PUBLISHABLE_KEY` (entspricht lokal dem bisherigen `anon key`)
+- `SECRET_KEY` (entspricht lokal dem bisherigen `service_role key`)
+- `ANON_KEY`
+- `SERVICE_ROLE_KEY`
+- `JWT_SECRET`
 
 Diese Werte setzen in:
 - Root `.env`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`
@@ -80,8 +82,7 @@ Optional Volumes mit löschen:
 ## 7) Häufige Stolperfallen
 
 - `http://localhost:54322` im Browser geht nicht: das ist Postgres-Port, kein Webserver.
-- Wenn `supabase start` Portkonflikte meldet, vorher DB-Container stoppen:
-  `docker compose stop supabase-db`
+- Wenn `supabase start` Portkonflikte meldet, läuft meist bereits ein lokaler Dienst auf den Supabase-Ports (z. B. 54321/54322/54323). Den fremden Dienst stoppen und `supabase start` erneut ausführen.
 - Nach Key-Änderungen Frontend immer neu starten (`--force-recreate`).
 
 ---

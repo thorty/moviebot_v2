@@ -27,8 +27,7 @@ brew install supabase/tap/supabase
 In dein Repo wechseln und Supabase initialisieren
 cd /Users/A743293/workspace/playground/mb_langgraph_v3
 supabase init
-Falls dein Compose-Postgres läuft, erst stoppen (Port-Konflikte vermeiden)
-docker compose stop supabase-db
+Falls `supabase start` Port-Konflikte meldet, erst fremde lokale Dienste auf den Supabase-Ports stoppen
 Lokalen Supabase Stack starten
 supabase start
 URLs + Keys ausgeben lassen
@@ -36,9 +35,10 @@ supabase status -o env
 Du bekommst dabei u. a.:
 API URL (meist http://127.0.0.1:54321)
 Studio URL (meist http://127.0.0.1:54323)
-anon key
-service_role key
-jwt secret
+ANON_KEY
+SERVICE_ROLE_KEY
+JWT_SECRET
+zusätzlich (neue Bezeichnungen): PUBLISHABLE_KEY und SECRET_KEY
 Keys in dein Projekt eintragen
 
 In .env setzen:
