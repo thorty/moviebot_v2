@@ -97,3 +97,34 @@ Einordnung:
 
 ### Hinweis für Task 4
 Der Service `frontend-web` bleibt in Task 1 absichtlich als Platzhalter aktiv. Sobald `frontend/web/package.json` existiert, startet derselbe Service automatisch die echte Web-App.
+
+## Task 2 Runbook (Env-Standardisierung)
+
+### Ziel
+Eine zentrale und reproduzierbare Env-Konfiguration ohne versteckte Defaults.
+
+### Datei-Standard
+- Vorlage: `.env.example`
+- Lokal aktiv: `.env` (nicht committen)
+
+### Setup
+1. `cp .env.example .env`
+2. Fehlende Secrets in `.env` ergänzen
+
+### Pflichtvariablen (MVP)
+- `OPENAI_API_KEY`
+- `TAVILY_API_KEY`
+- `TMDB_BEARER`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_JWT_SECRET`
+- `BACKEND_API_URL`
+- `FRONTEND_WEB_URL`
+
+### Zentraler Ladepfad
+- Env wird über `backend/utils/setupenv.py` geladen.
+- Legacy-Key `tmdb_bearer` bleibt kompatibel und wird auf `TMDB_BEARER` gespiegelt.
+
+### Verifikation
+1. `.env.example` enthält alle Pflichtvariablen.
+2. Nach `cp .env.example .env` startet Compose weiter ohne zusätzliche implizite Werte.

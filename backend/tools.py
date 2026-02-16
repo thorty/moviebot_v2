@@ -3,7 +3,6 @@ import sys, os
 from typing import Any, Dict
 from bs4 import BeautifulSoup
 from tavily import TavilyClient
-from dotenv import load_dotenv
 from duckduckgo_search import DDGS
 from langchain_core.tools import tool
 import requests # Import the tool decorator again
@@ -11,8 +10,9 @@ sys.path.append('./utils')  # Add the 'utils' directory to the Python path
 from backend.utils.helper import choose_streaming_providers, get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from backend.utils.tmdb.common import Provider, FreeProvider, PaymentTypes
+from backend.utils.setupenv import load_environment
 
-load_dotenv(dotenv_path=".env", override=True)
+load_environment(override=True)
 
 TAVILY_API_KEY = os.getenv('TAVILY_API_KEY')
 SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
