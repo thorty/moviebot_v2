@@ -49,6 +49,14 @@ def validate_required_env(groups: list[str]) -> tuple[bool, list[str]]:
     return len(missing) == 0, missing
 
 
+def get_required_env_value(name: str) -> str:
+    """Return an env value or raise a clear error when missing."""
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 def enable_langsmith() -> None:
     """Enable LangSmith tracing only when API key is configured."""
     load_environment()

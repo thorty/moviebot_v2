@@ -1,11 +1,12 @@
-from backend.utils.tmdb.tmdb_api_client import get_movies_for_providers, get_basic_data_from_tmdb_for_titles, get_detail_data_from_tmdb_for_title, get_movies_with_recro
-from backend.utils.tmdb.common import FreeProvider, Provider
-# import module 
-
 import traceback 
+import jwt
+
+from backend.utils.setupenv import get_required_env_value
 
 
 def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: list[str]) -> list[str]:
+  from backend.utils.tmdb.common import FreeProvider, Provider
+
   """
   Filter streaming providers based on payment types.
   - If paymenttypes contains only 'free': filter against FreeProvider and return matched FreeProvider values
@@ -58,6 +59,8 @@ def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: 
   
 def get_movie_data(input: dict):
   try:
+    from backend.utils.tmdb.tmdb_api_client import get_basic_data_from_tmdb_for_titles
+
     titles = input["titles"]
     print(f"_get_movie_data titles input: ", titles)
     inputlist = titles.split(",")
@@ -72,6 +75,8 @@ def get_movie_data(input: dict):
 def get_filtered_titles_tmdb(titles: list, userstreamingproviders: list[str]) -> dict:
   """Get filtered titles. Accepts list of strings or list of dicts with media_type."""
   try:
+    from backend.utils.tmdb.tmdb_api_client import get_movies_for_providers
+
     inputlist = titles
     providers = userstreamingproviders
     print(f"_get_movie_data titles input: ", titles, "filtered by providers: ", providers)
@@ -98,6 +103,8 @@ def get_filtered_recros_titles_tmdb(titles: list[str], userstreamingproviders: l
 
 def get_streaming_providers_tmdb(titles: list[str]):
   try:
+    from backend.utils.tmdb.tmdb_api_client import get_basic_data_from_tmdb_for_titles
+
     print(f"get_streaming_providers","titles=",titles)
     result = get_basic_data_from_tmdb_for_titles(titles)
     print(f"get_streaming_providers","result:", result)
@@ -108,6 +115,8 @@ def get_streaming_providers_tmdb(titles: list[str]):
 
 def get_detail_moviedata(title: str):
   try:
+    from backend.utils.tmdb.tmdb_api_client import get_detail_data_from_tmdb_for_title
+
     print(f"get_movie_data_from_tmdb","title=",title)
     fulldata = get_detail_data_from_tmdb_for_title(title)
     print(f"get_detail_moviedata","result:", fulldata)
@@ -115,5 +124,16 @@ def get_detail_moviedata(title: str):
   except:
      traceback.print_exc() 
      return None
+
+
+def verify_and_decode_supabase_jwt(token: str) -> dict:
+  """Validate and decode a Supabase JWT token using HS256 secret."""
+  secret = get_required_env_value("SUPABASE_JWT_SECRET")
+  return jwt.decode(
+      token,
+      secret,
+      algorithms=["HS256"],
+      options={"require": ["sub", "exp"]},
+  )
   
 
