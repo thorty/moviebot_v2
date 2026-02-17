@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
-from backend.persistence.conversations import get_or_create_active_conversation
+from backend.persistence.conversations import get_or_create_active_conversation, start_new_active_conversation
 from backend.persistence.message_logs import append_message_log
 from backend.utils.helper import verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
@@ -36,6 +36,12 @@ class ChatRequest(BaseModel):
     userstreamingproviders: list[str] = ["Disney Plus"]
     paymenttypes: list[str] = ["free", "flatrate", "rent", "buy"]
     thread_id: str | None = None
+
+
+class NewChatResponse(BaseModel):
+    status: str
+    user_id: str
+    conversation_id: str
 
 
 @app.on_event("startup")
@@ -96,7 +102,7 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         "analystresult": "",
     }
     config = {
-        "configurable": {"thread_id": payload.thread_id or f"user:{user_id}"},
+        "configurable": {"thread_id": payload.thread_id or f"conversation:{conversation_id}"},
         "recursion_limit": 50,
     }
 
@@ -150,3 +156,17 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
         "conversation_id": conversation_id,
         "reply": reply,
     }
+
+
+@app.post("/api/v1/chat/new", response_model=NewChatResponse)
+def start_new_chat(user_claims: dict = Depends(require_user_context)) -> NewChatResponse:
+    user_id = str(user_claims.get("sub", ""))
+    access_token = str(user_claims.get("_access_token", ""))
+    conversation = start_new_active_conversation(user_id=user_id, access_token=access_token)
+    conversation_id = str(conversation["id"])
+
+    return NewChatResponse(
+        status="accepted",
+        user_id=user_id,
+        conversation_id=conversation_id,
+    )

@@ -15,7 +15,13 @@ export type ChatResponsePayload = {
   reply: string
 }
 
-export async function sendChatMessage(payload: ChatRequestPayload): Promise<ChatResponsePayload> {
+export type NewChatResponsePayload = {
+  status: string
+  user_id: string
+  conversation_id: string
+}
+
+async function getAccessToken(): Promise<string> {
   if (!supabase) {
     throw new Error("Supabase ist nicht konfiguriert.")
   }
@@ -28,6 +34,12 @@ export async function sendChatMessage(payload: ChatRequestPayload): Promise<Chat
   if (!accessToken) {
     throw new Error("Keine aktive Session gefunden. Bitte neu einloggen.")
   }
+
+  return accessToken
+}
+
+export async function sendChatMessage(payload: ChatRequestPayload): Promise<ChatResponsePayload> {
+  const accessToken = await getAccessToken()
 
   const response = await fetch(`${backendApiUrl}/api/v1/chat`, {
     method: "POST",
@@ -49,4 +61,28 @@ export async function sendChatMessage(payload: ChatRequestPayload): Promise<Chat
   }
 
   return (await response.json()) as ChatResponsePayload
+}
+
+export async function startNewChatContext(): Promise<NewChatResponsePayload> {
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(`${backendApiUrl}/api/v1/chat/new`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    const fallback = `Backend-Fehler (${response.status})`
+    try {
+      const errorBody = await response.json()
+      throw new Error(errorBody?.detail || fallback)
+    } catch {
+      throw new Error(fallback)
+    }
+  }
+
+  return (await response.json()) as NewChatResponsePayload
 }

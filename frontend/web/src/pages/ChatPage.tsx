@@ -6,7 +6,7 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessages, type ChatMessage } from "@/components/chat/ChatMessages"
 import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
-import { sendChatMessage } from "@/lib/chatApi"
+import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
@@ -37,6 +37,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [isLoading, setIsLoading] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const hasMessages = messages.length > 0
@@ -119,10 +120,28 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     [appendConversation, isLoading]
   )
 
-  const handleNewChat = useCallback(() => {
-    setMessages([])
-    setInput("")
-  }, [])
+  const handleNewChat = useCallback(async () => {
+    if (isLoading || isResetting) {
+      return
+    }
+
+    setIsResetting(true)
+    try {
+      await startNewChatContext()
+      setMessages([])
+      setInput("")
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
+      const botMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Fehler beim Starten eines neuen Chats: ${errorMessage}`,
+      }
+      setMessages((current) => [...current, botMessage])
+    } finally {
+      setIsResetting(false)
+    }
+  }, [isLoading, isResetting])
 
   return (
     <div className="flex h-dvh flex-col" style={{ backgroundColor: "hsl(var(--background))" }}>
@@ -174,7 +193,8 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
 
           {hasMessages && (
             <button
-              onClick={handleNewChat}
+              onClick={() => void handleNewChat()}
+              disabled={isLoading || isResetting}
               className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-secondary/80"
             >
               <Plus className="h-4 w-4" />

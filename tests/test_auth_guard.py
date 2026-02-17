@@ -211,3 +211,39 @@ def test_chat_appends_user_and_assistant_messages_in_order(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert appended_roles == ["user", "assistant"]
+
+
+def test_start_new_chat_without_token_returns_401() -> None:
+    response = client.post("/api/v1/chat/new")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Missing bearer token"
+
+
+def test_start_new_chat_with_valid_token_returns_200(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+
+    monkeypatch.setattr(
+        "main.start_new_active_conversation",
+        lambda user_id, access_token: {"id": "conv-new-123", "user_id": user_id, "status": "active"},
+    )
+
+    payload = {
+        "sub": "user-123",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.post(
+        "/api/v1/chat/new",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    assert body["user_id"] == "user-123"
+    assert body["conversation_id"] == "conv-new-123"
