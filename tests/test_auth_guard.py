@@ -42,6 +42,7 @@ def test_chat_with_valid_token_returns_200(monkeypatch) -> None:
     payload = {
         "sub": "user-123",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
         "role": "authenticated",
     }
     token = jwt.encode(payload, secret, algorithm="HS256")
@@ -73,6 +74,7 @@ def test_chat_with_valid_token_and_extra_claims_returns_200(monkeypatch) -> None
     payload = {
         "sub": "user-456",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
         "role": "authenticated",
         "email": "user456@example.com",
         "app_metadata": {"provider": "email"},
@@ -115,6 +117,7 @@ def test_chat_forwards_jwt_sub_into_backend_flow(monkeypatch) -> None:
     payload = {
         "sub": "flow-user-999",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
         "role": "authenticated",
     }
     token = jwt.encode(payload, secret, algorithm="HS256")
@@ -151,6 +154,7 @@ def test_chat_same_user_reuses_single_active_conversation(monkeypatch) -> None:
     payload = {
         "sub": "same-user-1",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
         "role": "authenticated",
     }
     token = jwt.encode(payload, secret, algorithm="HS256")
@@ -194,6 +198,7 @@ def test_chat_appends_user_and_assistant_messages_in_order(monkeypatch) -> None:
     payload = {
         "sub": "append-user-1",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
         "role": "authenticated",
     }
     token = jwt.encode(payload, secret, algorithm="HS256")

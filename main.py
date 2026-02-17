@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
+import os
 from typing import Any
 
 import jwt
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
@@ -16,6 +18,17 @@ from backend.utils.setupenv import load_environment
 app = FastAPI(title="Moviebot API", version="0.1.0")
 auth_scheme = HTTPBearer(auto_error=False)
 graph_app: Any | None = None
+
+default_frontend_origin = os.getenv("FRONTEND_WEB_URL", "http://localhost:3000").rstrip("/")
+allowed_origins = [default_frontend_origin, "http://localhost:3000", "http://127.0.0.1:3000"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(dict.fromkeys(allowed_origins)),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ChatRequest(BaseModel):

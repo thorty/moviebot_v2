@@ -198,3 +198,43 @@ Anlage in Supabase Auth (`auth.users`):
 ### Klare Abgrenzung
 - Prototyp (`plans/moviebot-web-app`) ist Referenz.
 - Produktive Laufzeit-App ist ausschließlich `frontend/web`.
+
+## Task 9 Runbook (Produktiver API-Transport im Frontend)
+
+### Ziel
+Frontend sendet Chat-Anfragen direkt an den produktiven Backend-Pfad `POST /api/v1/chat`.
+
+### Verbindlicher Endpoint + Auth
+- Endpoint: `POST /api/v1/chat`
+- Header: `Authorization: Bearer <JWT>`
+- Kein produktiver Transport über `plans/moviebot-web-app/app/api/chat/route.ts`
+
+### Frontend-Konfiguration
+Für lokale npm-Starts in `frontend/web/.env.local` zusätzlich setzen:
+- `VITE_BACKEND_API_URL=http://localhost:8000`
+
+### Request-Vertrag (Frontend → Backend)
+```json
+{
+	"message": "Ich suche einen Thriller",
+	"userstreamingproviders": ["Netflix", "Disney Plus"],
+	"paymenttypes": ["flatrate", "rent"]
+}
+```
+
+### Response-Vertrag (Backend → Frontend)
+```json
+{
+	"status": "accepted",
+	"user_id": "<jwt-sub>",
+	"conversation_id": "<uuid>",
+	"reply": "..."
+}
+```
+
+### Verifikation (Gate)
+1. Backend starten: `uvicorn main:app --reload`
+2. Frontend starten: `cd frontend/web && npm run dev -- --host 0.0.0.0 --port 3000`
+3. Mit lokalem Supabase-User einloggen
+4. Chat senden
+5. Erwartung: Frontend-Request geht an `POST /api/v1/chat` inkl. Bearer-Token und zeigt Backend-`reply`

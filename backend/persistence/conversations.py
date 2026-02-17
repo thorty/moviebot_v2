@@ -2,11 +2,11 @@ import json
 from typing import Any
 from urllib import request
 
-from backend.utils.setupenv import get_required_env_value
+from backend.utils.setupenv import get_required_env_value, normalize_url_for_runtime
 
 
 def get_or_create_active_conversation(user_id: str, access_token: str) -> dict[str, Any]:
-    supabase_url = get_required_env_value("SUPABASE_URL")
+    supabase_url = normalize_url_for_runtime(get_required_env_value("SUPABASE_URL"))
     supabase_anon_key = get_required_env_value("SUPABASE_ANON_KEY")
 
     rpc_url = f"{supabase_url.rstrip('/')}/rest/v1/rpc/get_or_create_active_conversation"

@@ -1,7 +1,9 @@
 import traceback 
 import jwt
+import os
+from urllib.parse import urlparse
 
-from backend.utils.setupenv import get_required_env_value
+from backend.utils.setupenv import get_required_env_value, normalize_url_for_runtime
 
 
 def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: list[str]) -> list[str]:
@@ -128,12 +130,42 @@ def get_detail_moviedata(title: str):
 
 def verify_and_decode_supabase_jwt(token: str) -> dict:
   """Validate and decode a Supabase JWT token using HS256 secret."""
-  secret = get_required_env_value("SUPABASE_JWT_SECRET")
+  audience = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
+  unverified_header = jwt.get_unverified_header(token)
+  algorithm = str(unverified_header.get("alg", "")).upper()
+
+  if algorithm.startswith("HS"):
+    secret = get_required_env_value("SUPABASE_JWT_SECRET")
+    return jwt.decode(
+        token,
+        secret,
+        algorithms=[algorithm],
+        audience=audience,
+        options={"require": ["sub", "exp"]},
+    )
+
+  unverified_claims = jwt.decode(token, options={"verify_signature": False})
+  issuer = str(unverified_claims.get("iss", ""))
+  if not issuer:
+    raise jwt.InvalidTokenError("Missing issuer claim")
+
+  configured_jwks_url = os.getenv("SUPABASE_JWT_JWKS_URL", "").strip()
+  if configured_jwks_url:
+    jwks_url = normalize_url_for_runtime(configured_jwks_url)
+  else:
+    parsed = urlparse(issuer)
+    base_issuer = f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip("/")
+    jwks_url = normalize_url_for_runtime(f"{base_issuer}/.well-known/jwks.json")
+
+  signing_key = jwt.PyJWKClient(jwks_url).get_signing_key_from_jwt(token).key
+
   return jwt.decode(
       token,
-      secret,
-      algorithms=["HS256"],
-      options={"require": ["sub", "exp"]},
+      signing_key,
+      algorithms=[algorithm],
+      audience=audience,
+      issuer=issuer,
+      options={"require": ["sub", "exp", "iss"]},
   )
   
 

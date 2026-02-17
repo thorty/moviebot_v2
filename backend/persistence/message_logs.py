@@ -2,7 +2,7 @@ import json
 from typing import Any
 from urllib import request
 
-from backend.utils.setupenv import get_required_env_value
+from backend.utils.setupenv import get_required_env_value, normalize_url_for_runtime
 
 VALID_ROLES = {"user", "assistant", "system", "tool"}
 
@@ -23,7 +23,7 @@ def append_message_log(
     if not normalized_content:
         raise RuntimeError("Message content must not be empty")
 
-    supabase_url = get_required_env_value("SUPABASE_URL")
+    supabase_url = normalize_url_for_runtime(get_required_env_value("SUPABASE_URL"))
     supabase_anon_key = get_required_env_value("SUPABASE_ANON_KEY")
 
     insert_url = f"{supabase_url.rstrip('/')}/rest/v1/message_logs"

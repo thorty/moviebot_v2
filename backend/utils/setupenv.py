@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 import dotenv
 
@@ -54,7 +55,23 @@ def get_required_env_value(name: str) -> str:
     value = os.getenv(name)
     if not value:
         raise RuntimeError(f"Missing required environment variable: {name}")
-    return value
+    return value.strip().strip('"').strip("'")
+
+
+def normalize_url_for_runtime(url: str) -> str:
+    """Rewrite loopback hosts for container runtime access when needed."""
+    parsed = urlparse(url)
+    if parsed.hostname not in {"127.0.0.1", "localhost"}:
+        return url
+
+    is_docker_runtime = os.path.exists("/.dockerenv")
+    if not is_docker_runtime:
+        return url
+
+    host = "host.docker.internal"
+    port_part = f":{parsed.port}" if parsed.port else ""
+    netloc = f"{host}{port_part}"
+    return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
 
 
 def enable_langsmith() -> None:

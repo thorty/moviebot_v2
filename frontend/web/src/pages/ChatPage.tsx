@@ -6,6 +6,7 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessages, type ChatMessage } from "@/components/chat/ChatMessages"
 import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
+import { sendChatMessage } from "@/lib/chatApi"
 
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
@@ -13,8 +14,17 @@ const DEFAULT_FILTERS: Filters = {
   paymentTypes: ["flatrate", "rent"],
 }
 
-const assistantAnswer =
-  "Task 4 Platzhalter-Antwort: UI ist aus dem Prototyp portiert. API-Transport folgt in Task 9."
+const PROVIDER_MAP: Record<string, string> = {
+  netflix: "Netflix",
+  "disney-plus": "Disney Plus",
+  amazon: "Amazon Prime Video",
+  wow: "WOW",
+  "paramount-plus": "Paramount Plus",
+  "apple-tv": "Apple TV Plus",
+  "magenta-tv": "MagentaTV",
+}
+
+const DEFAULT_PAYMENT_TYPES = ["free", "flatrate", "rent", "buy"]
 
 type ChatPageProps = {
   userEmail?: string
@@ -38,7 +48,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     return filters.providers.length + filters.paymentTypes.length
   }, [filters])
 
-  const appendConversation = useCallback((userText: string) => {
+  const appendConversation = useCallback(async (userText: string) => {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -48,26 +58,54 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     setMessages((current) => [...current, userMessage])
     setIsLoading(true)
 
-    window.setTimeout(() => {
+    const requestProviders =
+      filters.source === "mediathek"
+        ? ["Mediatheken"]
+        : (filters.providers.length > 0 ? filters.providers : DEFAULT_FILTERS.providers).map(
+            (provider) => PROVIDER_MAP[provider] || provider
+          )
+    const requestPaymentTypes =
+      filters.source === "mediathek"
+        ? ["free"]
+        : filters.paymentTypes.length > 0
+          ? filters.paymentTypes
+          : DEFAULT_PAYMENT_TYPES
+
+    try {
+      const response = await sendChatMessage({
+        message: userText,
+        userstreamingproviders: requestProviders,
+        paymenttypes: requestPaymentTypes,
+      })
+
       const botMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: assistantAnswer,
+        content: response.reply || "Ich habe aktuell keine Antwort erhalten.",
       }
       setMessages((current) => [...current, botMessage])
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
+      const botMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `Fehler beim Senden an das Backend: ${errorMessage}`,
+      }
+      setMessages((current) => [...current, botMessage])
+    } finally {
       setIsLoading(false)
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       }
-    }, 500)
-  }, [])
+    }
+  }, [filters])
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim()
     if (!trimmed || isLoading) {
       return
     }
-    appendConversation(trimmed)
+    void appendConversation(trimmed)
     setInput("")
   }, [appendConversation, input, isLoading])
 
@@ -76,7 +114,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       if (isLoading) {
         return
       }
-      appendConversation(prompt)
+      void appendConversation(prompt)
     },
     [appendConversation, isLoading]
   )
@@ -166,7 +204,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         <div className="mx-auto max-w-3xl">
           <ChatInput value={input} onChange={setInput} onSubmit={handleSend} isLoading={isLoading} />
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Task 4 Status: UI aus Prototyp portiert, API/Auth folgen in Task 5/9.
+            Produktiver Transport aktiv: `POST /api/v1/chat` mit Bearer-Token.
           </p>
         </div>
       </div>
