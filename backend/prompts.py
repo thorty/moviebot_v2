@@ -54,7 +54,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             ### Final Output Format (What the user sees) ###
             
             **If you found ≥2 suitable titles after filtering:**
-            Present exactly 6-8 high-quality recommendations in this format:
+            Present exactly 4 high-quality recommendations in this format:
             
             **If you found <2 suitable titles after 3 attempts:**
             Send only: "#NO_RESULTS#" (The system will handle the fallback response)
@@ -67,7 +67,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
             
             **Verfügbar auf:**
-            • [Streaming-Provider]: 🟢 Flatrate / 🟡 Leihen (X,XX€) / 🔴 Kaufen (X,XX€)
+            • [Streaming-Provider]: 🟢 Flatrate / 🟡 Leihen (X,XX€) / 🔴 Kaufen (X,XX€) 
             
             *[kurzes motivierendes outro was zum thema passt]*
             
@@ -104,7 +104,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             - ONLY mention the user's streaming providers: {', '.join(userstreamingproviders)}
             - Use clear symbols: 🟢 Flatrate | 🟡 Leihen | 🔴 Kaufen
             - If web search fails: use knowledge-based recommendations + brief note about limited search
-            - Quality over quantity: 6 perfect available recommendations > 10 unavailable ones
+            - Quality over quantity: 4 perfect available recommendations > 10 unavailable ones
             - Always provide reasoning why each title fits the user's request
             - dont mention that you are sorry for limited recommendations or limitations due to availability. instaed focus on the positive aspects of the recommendations.
             
@@ -168,7 +168,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         ### Final Output Format (What the user sees) ###
 
         **If you found ≥2 suitable titles after filtering:**
-        Present exactly 6-8 high-quality recommendations in this format:
+        Present exactly 4 high-quality recommendations in this format:
 
         *[kurzes intro mit den nutzerinteressen]*
 
@@ -198,7 +198,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         - ONLY mention the user's streaming provider: {userstreamingprovider}
         - Use clear symbols: 🟢 Flatrate | 🟡 Leihen | 🔴 Kaufen
         - If web search fails: use knowledge-based recommendations + brief note about limited search
-        - Quality over quantity: 6 perfect available recommendations > 10 unavailable ones
+        - Quality over quantity: 4 perfect available recommendations > 10 unavailable ones
         - Always provide reasoning why each title fits the user's request
         - Don't mention limitations or apologize for limited recommendations; focus on the positive aspects.
 
@@ -286,7 +286,7 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
         ### Final Output Format (What the user sees) ###
 
         **If you found ≥2 relevant titles after validation:**
-        Present exactly 4-8 high-quality recommendations in this format:
+        Present exactly 4 high-quality recommendations in this format:
 
         *[kurzes intro - erwähne die ausgewählten Genres und das Nutzerinteresse]*
 
