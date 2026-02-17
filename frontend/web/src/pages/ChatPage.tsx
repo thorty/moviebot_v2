@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, ChevronUp, Clapperboard, Plus, SlidersHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -26,6 +26,15 @@ const PROVIDER_MAP: Record<string, string> = {
 
 const DEFAULT_PAYMENT_TYPES = ["flatrate", "rent"]
 
+const LOADING_HINTS = [
+  "suche nach den besten Treffern ",
+  "durchsuche Videotheken ",
+  "denke nach ",
+  "schaue Trailer ",
+  "lese Bewertungen ",
+  "denke über den Sinn des Lebens nach ",  
+]
+
 type ChatPageProps = {
   userEmail?: string
   onLogout?: () => void
@@ -37,10 +46,31 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingHint, setLoadingHint] = useState(LOADING_HINTS[0])
   const [isResetting, setIsResetting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const hasMessages = messages.length > 0
+
+  useEffect(() => {
+    if (!isLoading) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setLoadingHint((current) => {
+        let nextHint = current
+        while (nextHint === current) {
+          nextHint = LOADING_HINTS[Math.floor(Math.random() * LOADING_HINTS.length)]
+        }
+        return nextHint
+      })
+    }, 10000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isLoading])
 
   const activeFilterCount = useMemo(() => {
     if (filters.source === "mediathek") {
@@ -57,6 +87,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     }
 
     setMessages((current) => [...current, userMessage])
+    setLoadingHint(LOADING_HINTS[Math.floor(Math.random() * LOADING_HINTS.length)])
     setIsLoading(true)
 
     const requestProviders =
@@ -226,7 +257,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
           {!hasMessages ? (
             <ExamplePrompts onSelect={handleExampleSelect} />
           ) : (
-            <ChatMessages messages={messages} isLoading={isLoading} />
+            <ChatMessages messages={messages} isLoading={isLoading} loadingText={loadingHint} />
           )}
         </div>
       </div>

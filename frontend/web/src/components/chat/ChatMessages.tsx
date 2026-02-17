@@ -1,4 +1,5 @@
 import { Bot, User } from "lucide-react"
+import { useEffect, useState } from "react"
 import ReactMarkdown from "react-markdown"
 
 import { cn } from "@/lib/utils"
@@ -14,9 +15,50 @@ export interface ChatMessage {
 interface ChatMessagesProps {
   messages: ChatMessage[]
   isLoading: boolean
+  loadingText?: string
 }
 
-export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesProps) {
+  const [typedLoadingText, setTypedLoadingText] = useState("")
+  const [dotCount, setDotCount] = useState(0)
+
+  useEffect(() => {
+    if (!isLoading || !loadingText) {
+      setTypedLoadingText("")
+      return
+    }
+
+    setTypedLoadingText("")
+    let characterIndex = 0
+    const typeIntervalId = window.setInterval(() => {
+      characterIndex += 1
+      setTypedLoadingText(loadingText.slice(0, characterIndex))
+
+      if (characterIndex >= loadingText.length) {
+        window.clearInterval(typeIntervalId)
+      }
+    }, 95)
+
+    return () => {
+      window.clearInterval(typeIntervalId)
+    }
+  }, [isLoading, loadingText])
+
+  useEffect(() => {
+    if (!isLoading) {
+      setDotCount(0)
+      return
+    }
+
+    const dotIntervalId = window.setInterval(() => {
+      setDotCount((current) => (current >= 5 ? 0 : current + 1))
+    }, 550)
+
+    return () => {
+      window.clearInterval(dotIntervalId)
+    }
+  }, [isLoading])
+
   return (
     <div className="flex flex-col gap-6">
       {messages.map((message) => {
@@ -64,6 +106,12 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
             <span className="text-xs text-muted-foreground">Moviebot</span>
             <div className="rounded-2xl rounded-tl-md bg-secondary px-4 py-3">
               <LoadingDots />
+              {loadingText && (
+                <p className="text-xs text-muted-foreground min-h-4">
+                  {typedLoadingText}
+                  {".".repeat(dotCount)}
+                </p>
+              )}
             </div>
           </div>
         </div>
