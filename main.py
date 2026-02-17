@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from backend.persistence.conversations import get_or_create_active_conversation
+from backend.persistence.message_logs import append_message_log
 from backend.utils.helper import verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
 
@@ -109,7 +110,27 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
     access_token = str(user_claims.get("_access_token", ""))
     conversation = get_or_create_active_conversation(user_id=user_id, access_token=access_token)
     conversation_id = str(conversation["id"])
+
+    append_message_log(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        access_token=access_token,
+        role="user",
+        content=payload.message,
+        metadata={"source": "api"},
+    )
+
     reply = invoke_user_chat(user_id=user_id, conversation_id=conversation_id, payload=payload)
+
+    append_message_log(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        access_token=access_token,
+        role="assistant",
+        content=reply or "(empty)",
+        metadata={"source": "api"},
+    )
+
     return {
         "status": "accepted",
         "user_id": user_id,

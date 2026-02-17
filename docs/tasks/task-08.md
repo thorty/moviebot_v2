@@ -1,15 +1,18 @@
-# Task 08 — Genau 1 aktive Conversation + vollständige Nachrichtenpersistenz (Subtask 8.1)
+# Task 08 — Genau 1 aktive Conversation + vollständige Nachrichtenpersistenz (Subtasks 8.1 + 8.2)
 
 ## 1) Kurzüberblick
-- Ziel dieses Subtasks: pro User technisch genau eine aktive Conversation sicherstellen.
-- Ergebnis:
+- Ziel: pro User genau 1 aktive Conversation und vollständige append-only Nachrichtenpersistenz.
+- Ergebnis Subtask 8.1:
   - DB-seitig existiert ein transaktionaler RPC-Upsert-Pfad `get_or_create_active_conversation()`.
   - Backend ruft diesen Pfad pro Chat-Request auf und verwendet immer die aktive Conversation-ID.
+- Ergebnis Subtask 8.2:
+  - Backend schreibt bei jedem Chat-Request einen `user`-Logeintrag (Input) und einen `assistant`-Logeintrag (Antwort).
+  - Schreiben erfolgt insert-only über `message_logs` (keine Update-Pfade).
 - Umgesetzt in:
   - `supabase/migrations/20260217123000_task8_single_active_conversation_rpc.sql`
-  - `backend/persistence/conversations.py`
+  - `backend/persistence/conversations.py`, `backend/persistence/message_logs.py`
   - `main.py`, `backend/states.py`, `backend/graph.py`
-  - `tests/test_auth_guard.py`, `tests/test_conversations_service.py`
+  - `tests/test_auth_guard.py`, `tests/test_conversations_service.py`, `tests/test_message_logs_service.py`
 
 ## 2) Erklärung für Junior Dev (einfach)
 Stell dir vor, ein User klickt zweimal fast gleichzeitig auf "Senden".
@@ -25,6 +28,11 @@ Deshalb kombinieren wir zwei Ebenen:
 
 So entsteht am Ende immer genau **eine** aktive Conversation.
 
+Für 8.2 gilt zusätzlich:
+- Jede User-Nachricht wird als neue Zeile in `message_logs` gespeichert.
+- Jede Bot-Antwort wird ebenfalls als neue Zeile gespeichert.
+- Es gibt keinen Update-Path für alte Nachrichten (append-only).
+
 ## 3) Was du manuell machen musst
 1. Supabase lokal starten: `supabase start`
 2. Migrationen anwenden: `supabase db reset`
@@ -37,14 +45,16 @@ So entsteht am Ende immer genau **eine** aktive Conversation.
 - JWT-Auth aus Task 7 ist aktiv.
 
 ### Testschritte
-1. `pytest tests/test_auth_guard.py tests/test_conversations_service.py -v`
+1. `pytest tests/test_auth_guard.py tests/test_conversations_service.py tests/test_message_logs_service.py -v`
 2. Optional manuell zwei Requests mit gleichem JWT schnell nacheinander senden.
 3. In DB prüfen, dass nur eine aktive Conversation für den User existiert.
+4. In DB prüfen, dass pro Request neue Einträge in `message_logs` entstehen (user + assistant).
 
 ### Erwartetes Ergebnis
 - Tests sind grün.
 - Backend liefert für denselben User dieselbe `conversation_id`, solange Conversation aktiv ist.
 - In `public.conversations` existiert pro User maximal 1 Zeile mit `status='active'`.
+- In `public.message_logs` werden nur neue Zeilen angehängt; bestehende Nachrichten bleiben unverändert.
 
 ## 5) Troubleshooting
 - Problem: RPC liefert 401/403.
@@ -59,8 +69,17 @@ So entsteht am Ende immer genau **eine** aktive Conversation.
   - Ursache: Index/Migration nicht angewendet.
   - Lösung: Migration-Stand prüfen und neu anwenden.
 
-## 6) Definition of Done (Subtask 8.1)
+- Problem: Keine Einträge in `message_logs`.
+  - Ursache: Backend hat keinen gültigen User-JWT an Supabase übergeben.
+  - Lösung: `Authorization`-Header durchreichen und RLS/Auth-Kontext prüfen.
+
+- Problem: Fehler `Message content must not be empty`.
+  - Ursache: Leerer Inhalt wurde persistiert.
+  - Lösung: Input/Antwort auf nicht-leeren Inhalt prüfen.
+
+## 6) Definition of Done (Subtasks 8.1 + 8.2)
 - [x] Regel „genau 1 aktive Conversation pro User“ in Persistenz + Service-Logik abgesichert
 - [x] DB-Constraint + transaktionaler Upsert-Pfad verbindlich kombiniert
+- [x] Alle User-Eingaben und Bot-Antworten werden append-only persistiert
 - [x] Tests für Service- und Request-Flow vorhanden
 - [x] Lerndoku vollständig
