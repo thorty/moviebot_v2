@@ -224,10 +224,19 @@ def test_start_new_chat_with_valid_token_returns_200(monkeypatch) -> None:
     secret = "local-test-secret"
     monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
 
+    reset_calls: list[str] = []
+
+    monkeypatch.setattr(
+        "main.get_or_create_active_conversation",
+        lambda user_id, access_token: {"id": "conv-old-123", "user_id": user_id, "status": "active"},
+    )
+
     monkeypatch.setattr(
         "main.start_new_active_conversation",
         lambda user_id, access_token: {"id": "conv-new-123", "user_id": user_id, "status": "active"},
     )
+
+    monkeypatch.setattr("main.reset_graph_thread_state", lambda thread_id: reset_calls.append(thread_id))
 
     payload = {
         "sub": "user-123",
@@ -247,3 +256,4 @@ def test_start_new_chat_with_valid_token_returns_200(monkeypatch) -> None:
     assert body["status"] == "accepted"
     assert body["user_id"] == "user-123"
     assert body["conversation_id"] == "conv-new-123"
+    assert reset_calls == ["conversation:conv-old-123", "conversation:conv-new-123"]

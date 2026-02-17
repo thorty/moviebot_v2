@@ -90,6 +90,26 @@ def get_graph_app() -> Any:
     return graph_app
 
 
+def reset_graph_thread_state(thread_id: str) -> None:
+    global graph_app
+    if graph_app is None:
+        return
+
+    checkpointer = getattr(graph_app, "checkpointer", None)
+    if checkpointer is None:
+        return
+
+    delete_thread = getattr(checkpointer, "delete_thread", None)
+    if delete_thread is None:
+        return
+
+    try:
+        delete_thread(thread_id)
+    except Exception:
+        # Best effort reset: do not fail user flow if checkpoint cleanup fails.
+        pass
+
+
 def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -> str:
     app_graph = get_graph_app()
     graph_input = {
@@ -162,8 +182,14 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
 def start_new_chat(user_claims: dict = Depends(require_user_context)) -> NewChatResponse:
     user_id = str(user_claims.get("sub", ""))
     access_token = str(user_claims.get("_access_token", ""))
+    previous_conversation = get_or_create_active_conversation(user_id=user_id, access_token=access_token)
+    previous_conversation_id = str(previous_conversation["id"])
+
     conversation = start_new_active_conversation(user_id=user_id, access_token=access_token)
     conversation_id = str(conversation["id"])
+
+    reset_graph_thread_state(f"conversation:{previous_conversation_id}")
+    reset_graph_thread_state(f"conversation:{conversation_id}")
 
     return NewChatResponse(
         status="accepted",

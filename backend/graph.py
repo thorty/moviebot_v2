@@ -43,7 +43,8 @@ def initialize_gpt41_model():
     gpt41_model = ChatOpenAI(   
         api_key= os.getenv("OPENAI_API_KEY"),
         temperature=0.3,
-        model="gpt-4.1"
+        model="gpt-4.1",
+        max_tokens=10000
         # todo maxtoken
     )
     print(f"[MODEL_INIT] ✓ Model initialized: gpt-4.1")
