@@ -10,7 +10,7 @@ import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
-  providers: ["netflix", "disney-plus", "amazon"],
+  providers: ["netflix", "disney-plus", "amazon", "wow", "paramount-plus", "apple-tv", "magenta-tv"],
   paymentTypes: ["flatrate", "rent"],
 }
 

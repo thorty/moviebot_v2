@@ -110,7 +110,8 @@ export default function App() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              style={{ color: "hsl(var(--background))", caretColor: "hsl(var(--background))", WebkitTextFillColor: "hsl(var(--background))" }}
               placeholder="you@example.com"
               required
             />
@@ -122,7 +123,8 @@ export default function App() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground"
+              style={{ color: "hsl(var(--background))", caretColor: "hsl(var(--background))", WebkitTextFillColor: "hsl(var(--background))" }}
               placeholder="••••••••"
               required
             />
