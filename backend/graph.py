@@ -66,6 +66,8 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     # Log relevant state fields (excluding messages for brevity)
     found_titles = state.get("found_titles", [])
     state_summary = {
+        "user_id": state.get("user_id", ""),
+        "conversation_id": state.get("conversation_id", ""),
         "userstreamingproviders": state.get("userstreamingproviders", []),
         "analystresult": state.get("analystresult", "")[:100] + "..." if state.get("analystresult", "") else "",
         "scope_status": state.get("scope_status", ""),

@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
+from backend.persistence.conversations import get_or_create_active_conversation
 from backend.utils.helper import verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
 
@@ -45,7 +46,9 @@ def require_user_context(
 
     token = credentials.credentials
     try:
-        return verify_and_decode_supabase_jwt(token)
+        claims = verify_and_decode_supabase_jwt(token)
+        claims["_access_token"] = token
+        return claims
     except jwt.InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -67,11 +70,12 @@ def get_graph_app() -> Any:
     return graph_app
 
 
-def invoke_user_chat(user_id: str, payload: ChatRequest) -> str:
+def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -> str:
     app_graph = get_graph_app()
     graph_input = {
         "messages": [HumanMessage(content=payload.message)],
         "user_id": user_id,
+        "conversation_id": conversation_id,
         "userstreamingproviders": payload.userstreamingproviders,
         "paymenttypes": payload.paymenttypes,
         "found_titles": [],
@@ -102,9 +106,13 @@ def health() -> dict[str, str]:
 @app.post("/api/v1/chat")
 def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)) -> dict[str, str]:
     user_id = str(user_claims.get("sub", ""))
-    reply = invoke_user_chat(user_id=user_id, payload=payload)
+    access_token = str(user_claims.get("_access_token", ""))
+    conversation = get_or_create_active_conversation(user_id=user_id, access_token=access_token)
+    conversation_id = str(conversation["id"])
+    reply = invoke_user_chat(user_id=user_id, conversation_id=conversation_id, payload=payload)
     return {
         "status": "accepted",
         "user_id": user_id,
+        "conversation_id": conversation_id,
         "reply": reply,
     }
