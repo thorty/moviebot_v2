@@ -68,17 +68,16 @@ export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesP
           <div key={message.id} className={cn("flex gap-3 max-w-full", isUser && "flex-row-reverse")}>
             <div
               className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
                 isUser ? "bg-secondary" : "bg-primary/10"
               )}
             >
-              {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4 text-primary" />}
+              {isUser ? <User className="h-6 w-6" /> : <Bot className="h-6 w-6 text-primary" />}
             </div>
-            <div className={cn("flex flex-col gap-1 max-w-[85%] md:max-w-[75%]", isUser && "items-end")}>
-              <span className="text-xs text-muted-foreground">{isUser ? "Du" : "Moviebot"}</span>
+            <div className={cn("flex flex-col max-w-[85%] md:max-w-[75%]", isUser && "items-end")}>
               <div
                 className={cn(
-                  "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                  "rounded-2xl px-4 py-3 text-base leading-relaxed",
                   isUser
                     ? "bg-primary text-primary-foreground rounded-tr-md"
                     : "bg-secondary text-foreground rounded-tl-md"
@@ -87,7 +86,7 @@ export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesP
                 {isUser ? (
                   <p>{message.content}</p>
                 ) : (
-                  <div className="prose prose-sm max-w-none [&>p]:my-1 [&>ul]:my-2 [&>ol]:my-2">
+                  <div className="prose max-w-none [&>p]:my-1 [&>ul]:my-2 [&>ol]:my-2">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 )}
@@ -99,15 +98,14 @@ export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesP
 
       {isLoading && (messages.length === 0 || messages[messages.length - 1]?.role === "user") && (
         <div className="flex gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Bot className="h-4 w-4 text-primary" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Bot className="h-6 w-6 text-primary" />
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Moviebot</span>
+          <div className="flex flex-col">
             <div className="rounded-2xl rounded-tl-md bg-secondary px-4 py-3">
               <LoadingDots />
               {loadingText && (
-                <p className="text-xs text-muted-foreground min-h-4">
+                <p className="text-sm text-muted-foreground min-h-5">
                   {typedLoadingText}
                   {".".repeat(dotCount)}
                 </p>
