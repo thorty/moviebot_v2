@@ -190,7 +190,7 @@ def out_of_scope_response(state: AgentState):
     response_msg = AIMessage(
         content=(
             "Da bin ich leider raus 😅 – aber bei Filmen und Serien kenn ich mich richtig gut aus!"
-            "Sag mir einfach, worauf du Lust hast und ich finde was Passendes." 🎥 🍿
+            "Sag mir einfach, worauf du Lust hast und ich finde was Passendes. 🎥 🍿"
         )
     )
     return {

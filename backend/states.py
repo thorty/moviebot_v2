@@ -25,6 +25,8 @@ def add_message(existing_messages: list, new_messages: list) -> list:
     return result_messages
 
 class AgentState(TypedDict):
+    # Authenticated user id from JWT (sub claim)
+    user_id: str
     # User's streaming providers
     userstreamingproviders: list[str]
     # User's payment types (e.g., free, rent)

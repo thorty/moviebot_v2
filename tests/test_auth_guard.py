@@ -32,6 +32,7 @@ def test_chat_with_invalid_token_returns_403(monkeypatch) -> None:
 def test_chat_with_valid_token_returns_200(monkeypatch) -> None:
     secret = "local-test-secret"
     monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+    monkeypatch.setattr("main.invoke_user_chat", lambda user_id, payload: "stubbed reply")
 
     payload = {
         "sub": "user-123",
@@ -50,11 +51,13 @@ def test_chat_with_valid_token_returns_200(monkeypatch) -> None:
     body = response.json()
     assert body["status"] == "accepted"
     assert body["user_id"] == "user-123"
+    assert body["reply"] == "stubbed reply"
 
 
 def test_chat_with_valid_token_and_extra_claims_returns_200(monkeypatch) -> None:
     secret = "local-test-secret"
     monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+    monkeypatch.setattr("main.invoke_user_chat", lambda user_id, payload: "stubbed reply")
 
     payload = {
         "sub": "user-456",
@@ -75,3 +78,34 @@ def test_chat_with_valid_token_and_extra_claims_returns_200(monkeypatch) -> None
     body = response.json()
     assert body["status"] == "accepted"
     assert body["user_id"] == "user-456"
+    assert body["reply"] == "stubbed reply"
+
+
+def test_chat_forwards_jwt_sub_into_backend_flow(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+
+    forwarded: dict[str, str] = {}
+
+    def fake_invoke_user_chat(user_id, payload):
+        forwarded["user_id"] = user_id
+        return "ok"
+
+    monkeypatch.setattr("main.invoke_user_chat", fake_invoke_user_chat)
+
+    payload = {
+        "sub": "flow-user-999",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Hi"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user_id"] == "flow-user-999"
+    assert forwarded["user_id"] == "flow-user-999"

@@ -1,12 +1,13 @@
-# Task 07 — JWT-Guard pro Request (Subtask 7.1)
+# Task 07 — JWT-Guard pro Request (Subtasks 7.1 + 7.2)
 
 ## 1) Kurzüberblick
-- Ziel dieses Subtasks: Requests ohne gültiges JWT zuverlässig blockieren.
-- Ergebnis: FastAPI prüft bei `POST /api/v1/chat` den Bearer-Token pro Request.
-- Fehlerverhalten ist klar getrennt:
+- Ziel: geschützte Requests erzwingen und User-Kontext in den Backend-Flow durchreichen.
+- Ergebnis Subtask 7.1: FastAPI prüft bei `POST /api/v1/chat` den Bearer-Token pro Request.
+- Ergebnis Subtask 7.2: `sub` aus dem validen JWT wird als `user_id` in den Chat-Flow und LangGraph-State übergeben.
+- Fehlerverhalten bleibt klar getrennt:
   - `401`: kein/kaputter Auth-Header
   - `403`: Token ungültig oder abgelaufen
-- Umgesetzt in: `main.py`, `backend/utils/helper.py`, `backend/utils/setupenv.py`, `tests/test_auth_guard.py`.
+- Umgesetzt in: `main.py`, `backend/utils/helper.py`, `backend/utils/setupenv.py`, `backend/states.py`, `tests/test_auth_guard.py`.
 
 ## 2) Erklärung für Junior Dev (einfach)
 Der JWT-Guard ist wie eine Eingangskontrolle.
@@ -19,7 +20,7 @@ Ablauf pro Request:
 
 Warum wichtig?
 - Ohne Guard könnte jede Person anonym auf geschützte Endpunkte zugreifen.
-- Der Guard ist die Grundlage, damit wir in Subtask 7.2 den echten User-Kontext zuverlässig durchreichen können.
+- Mit Subtask 7.2 weiß der Backend-Flow jetzt eindeutig, welcher User den Request ausgelöst hat (`user_id = JWT sub`).
 
 ## 3) Was du manuell machen musst
 1. Sicherstellen, dass `.env` vorhanden ist (`cp .env.example .env`).
@@ -41,6 +42,7 @@ Warum wichtig?
 ### Erwartetes Ergebnis
 - Test `without_token` liefert `401` mit `Missing bearer token`.
 - Test `invalid_token` liefert `403` mit `Invalid or expired token`.
+- Positivtest `forwards_jwt_sub` zeigt: `sub` wird korrekt in den Backend-Flow durchgereicht.
 - Manuelle Calls zeigen dasselbe Verhalten.
 
 ## 5) Troubleshooting
@@ -60,4 +62,5 @@ Warum wichtig?
 - [x] JWT-Verifikation im FastAPI-Requestpfad implementiert
 - [x] Fehlende/ungültige Tokens werden zuverlässig mit `401/403` beantwortet
 - [x] Negativtests für beide Fälle vorhanden und ausführbar
+- [x] Positivtest zeigt eindeutige User-Identifikation im Request-Flow
 - [x] Lerndoku vollständig
