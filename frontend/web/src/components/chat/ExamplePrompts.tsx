@@ -1,12 +1,12 @@
-import { Clapperboard, Ghost, Heart, Popcorn, Sparkles, Swords } from "lucide-react"
+import { Clapperboard, Laugh, Mountain, Music, Rocket, Search, Swords } from "lucide-react"
 
 const EXAMPLE_PROMPTS = [
-  { icon: Popcorn, text: "Ein lustiger Film für den Abend mit Freunden" },
-  { icon: Sparkles, text: "Die besten Sci-Fi Serien der letzten 5 Jahre" },
-  { icon: Heart, text: "Romantische Komödien wie bei Harry und Sally" },
-  { icon: Swords, text: "Spannende Thriller mit unvorhersehbarem Ende" },
-  { icon: Ghost, text: "Gruselige Horrorfilme für Halloween" },
-  { icon: Clapperboard, text: "Oscar-prämierte Filme, die man gesehen haben muss" },
+  { icon: Laugh, text: "Ein lustiger Film für den Abend mit Freunden" },
+  { icon: Rocket, text: "Die besten Sci-Fi Serien der letzten 5 Jahre" },
+  { icon: Search, text: "Eine Krimiserie wie \"Death in Paradise\"" },
+  { icon: Swords, text: "Spannende Abenteuerfilme für die ganze Familie mit Piraten" },
+  { icon: Mountain, text: "Eine Dokumentation über das Extrembergsteigen" },
+  { icon: Music, text: "Eine Dokumentation über Rockmusik" },
 ]
 
 interface ExamplePromptsProps {

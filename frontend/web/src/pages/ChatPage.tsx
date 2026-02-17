@@ -24,7 +24,7 @@ const PROVIDER_MAP: Record<string, string> = {
   "magenta-tv": "MagentaTV",
 }
 
-const DEFAULT_PAYMENT_TYPES = ["free", "flatrate", "rent", "buy"]
+const DEFAULT_PAYMENT_TYPES = ["flatrate", "rent"]
 
 type ChatPageProps = {
   userEmail?: string
@@ -175,14 +175,25 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
           <button
             onClick={() => setFiltersOpen((current) => !current)}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all",
-              filtersOpen || activeFilterCount > 0
-                ? "bg-primary/10 text-primary"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
+              "flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-bold tracking-wide transition-all border"
             )}
+            style={
+              filtersOpen
+                ? {
+                    color: "hsl(var(--primary-foreground))",
+                    borderColor: "hsl(var(--primary))",
+                    background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)",
+                    boxShadow: "0 0 0 2px hsl(var(--primary) / 0.35)",
+                  }
+                : {
+                    color: "hsl(var(--primary-foreground))",
+                    borderColor: "hsl(var(--primary))",
+                    background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)",
+                  }
+            }
           >
-            <SlidersHorizontal className="h-4 w-4" />
-            <span className="hidden sm:inline">Filter</span>
+            <SlidersHorizontal className="h-5 w-5" />
+            <span>FILTER</span>
             {activeFilterCount > 0 && (
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                 {activeFilterCount}
@@ -224,8 +235,8 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         <div className="mx-auto max-w-3xl">
           <ChatInput value={input} onChange={setInput} onSubmit={handleSend} isLoading={isLoading} />
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Produktiver Transport aktiv: `POST /api/v1/chat` mit Bearer-Token.
-          </p>
+            Moviebot kann Fehler machen. Verfügbarkeit auf Plattformen kann variieren.
+          </p>          
         </div>
       </div>
     </div>

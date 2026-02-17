@@ -27,6 +27,10 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
+  const AUSLEIHEN_PAYMENT_TYPES: PaymentType[] = ["flatrate", "rent"]
+  const FLATRATE_COLOR = "#22C55E"
+  const AUSLEIHEN_COLOR = "#F59E0B"
+
   const toggleProvider = (providerId: string) => {
     const newProviders = filters.providers.includes(providerId)
       ? filters.providers.filter((provider) => provider !== providerId)
@@ -39,7 +43,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
     onFiltersChange({
       source,
       providers: [],
-      paymentTypes: [],
+      paymentTypes: source === "streaming" ? AUSLEIHEN_PAYMENT_TYPES : [],
     })
   }
 
@@ -47,6 +51,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={() => setSource("streaming")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
@@ -59,6 +64,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
           Streaming
         </button>
         <button
+          type="button"
           onClick={() => setSource("mediathek")}
           className={cn(
             "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
@@ -80,6 +86,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
               return (
                 <button
                   key={provider.id}
+                  type="button"
                   onClick={() => toggleProvider(provider.id)}
                   className={cn(
                     "rounded-lg px-3 py-2 text-sm font-medium transition-all border",
@@ -106,50 +113,60 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
           {filters.providers.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">Bezahlmodell:</span>
+              {(() => {
+                const isFlatrateSelected = filters.paymentTypes.includes("flatrate")
+                const isAusleihenSelected =
+                  filters.paymentTypes.includes("flatrate") && filters.paymentTypes.includes("rent")
+
+                return (
+                  <>
               <button
-                onClick={() => {
-                  const hasFlatrate = filters.paymentTypes.includes("flatrate")
-                  if (hasFlatrate) {
-                    onFiltersChange({ ...filters, paymentTypes: [] })
-                    return
-                  }
-                  onFiltersChange({
-                    ...filters,
-                    paymentTypes: [...filters.paymentTypes.filter((type) => type !== "flatrate"), "flatrate"],
-                  })
-                }}
+                type="button"
+                onClick={() => onFiltersChange({ ...filters, paymentTypes: ["flatrate"] })}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
-                  filters.paymentTypes.includes("flatrate")
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all border",
+                  isFlatrateSelected
+                    ? "border-transparent"
+                    : "border-border bg-secondary text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
                 )}
+                style={
+                  isFlatrateSelected
+                    ? {
+                        backgroundColor: `${FLATRATE_COLOR}20`,
+                        borderColor: FLATRATE_COLOR,
+                        color: FLATRATE_COLOR,
+                      }
+                    : undefined
+                }
               >
                 <CreditCard className="h-3.5 w-3.5" />
                 Flatrate
               </button>
               <button
-                onClick={() => {
-                  const hasRent = filters.paymentTypes.includes("rent")
-                  if (hasRent) {
-                    onFiltersChange({
-                      ...filters,
-                      paymentTypes: filters.paymentTypes.filter((type) => type !== "rent"),
-                    })
-                    return
-                  }
-                  onFiltersChange({ ...filters, paymentTypes: ["flatrate", "rent"] })
-                }}
+                type="button"
+                onClick={() => onFiltersChange({ ...filters, paymentTypes: AUSLEIHEN_PAYMENT_TYPES })}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
-                  filters.paymentTypes.includes("rent")
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all border",
+                  isAusleihenSelected
+                    ? "border-transparent"
+                    : "border-border bg-secondary text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
                 )}
+                style={
+                  isAusleihenSelected
+                    ? {
+                        backgroundColor: `${AUSLEIHEN_COLOR}20`,
+                        borderColor: AUSLEIHEN_COLOR,
+                        color: AUSLEIHEN_COLOR,
+                      }
+                    : undefined
+                }
               >
                 <ShoppingCart className="h-3.5 w-3.5" />
                 Ausleihen
               </button>
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>

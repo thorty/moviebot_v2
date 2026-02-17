@@ -34,7 +34,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
     userstreamingproviders: list[str] = ["Disney Plus"]
-    paymenttypes: list[str] = ["free", "flatrate", "rent", "buy"]
+    paymenttypes: list[str] = ["flatrate", "rent"]
     thread_id: str | None = None
 
 

@@ -36,7 +36,7 @@ def clear_thread_state(thread_id):
     return None
 
 
-def chat_with_bot(message, history, content_type, selected_providers, only_free, thread_id):
+def chat_with_bot(message, history, content_type, selected_providers, payment_model, thread_id):
     """
     Handle chat interaction with the MovieBot.
     
@@ -45,7 +45,7 @@ def chat_with_bot(message, history, content_type, selected_providers, only_free,
         history: Chat history in Gradio format [(user_msg, bot_msg), ...]
         content_type: "Streaming-Dienste" or "Mediatheken"
         selected_providers: List of selected streaming providers
-        only_free: Boolean indicating if only free content should be shown
+        payment_model: Selected payment model from UI
         thread_id: Unique session ID
     
     Returns:
@@ -60,8 +60,13 @@ def chat_with_bot(message, history, content_type, selected_providers, only_free,
     else:  # "Streaming-Dienste"
         providers = selected_providers if selected_providers else ["Disney Plus"]
     
-    # Determine payment types based on "only free" selection
-    payment_types = ["free"] if only_free else PAYMENT_TYPES
+    # Determine payment types based on selected payment model
+    payment_model_map = {
+        "Ausleihen (Flatrate + Leihen)": ["flatrate", "rent"],
+        "Nur Flatrate": ["flatrate"],
+        "Nur kostenlos": ["free"],
+    }
+    payment_types = payment_model_map.get(payment_model, ["flatrate", "rent"])
     
     # Retrieve previous state for persistence
     previous_result = last_result_store.get(thread_id, {})
@@ -148,10 +153,11 @@ def create_ui():
                     visible=True
                 )
                 
-                only_free_checkbox = gr.Checkbox(
-                    value=False,
-                    label="Nur kostenlose Inhalte",
-                    info="Nur Inhalte anzeigen, die kostenlos verfügbar sind"
+                payment_model_radio = gr.Radio(
+                    choices=["Ausleihen (Flatrate + Leihen)", "Nur Flatrate", "Nur kostenlos"],
+                    value="Ausleihen (Flatrate + Leihen)",
+                    label="Bezahlmodell",
+                    info="Wähle, ob auch Leihinhalte berücksichtigt werden sollen"
                 )
                 
                 gr.Markdown(
@@ -193,8 +199,8 @@ def create_ui():
             outputs=[provider_selector]
         )
         
-        def respond(message, history, content_type, providers, only_free, thread_id):
-            bot_response = chat_with_bot(message, history, content_type, providers, only_free, thread_id)
+        def respond(message, history, content_type, providers, payment_model, thread_id):
+            bot_response = chat_with_bot(message, history, content_type, providers, payment_model, thread_id)
             # Gradio expects messages in dict format with 'role' and 'content'
             history.append({"role": "user", "content": message})
             history.append({"role": "assistant", "content": bot_response})
@@ -202,13 +208,13 @@ def create_ui():
         
         submit_btn.click(
             respond,
-            inputs=[msg, chatbot, content_type_radio, provider_selector, only_free_checkbox, thread_id_state],
+            inputs=[msg, chatbot, content_type_radio, provider_selector, payment_model_radio, thread_id_state],
             outputs=[msg, chatbot]
         )
         
         msg.submit(
             respond,
-            inputs=[msg, chatbot, content_type_radio, provider_selector, only_free_checkbox, thread_id_state],
+            inputs=[msg, chatbot, content_type_radio, provider_selector, payment_model_radio, thread_id_state],
             outputs=[msg, chatbot]
         )
         
