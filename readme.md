@@ -238,3 +238,13 @@ Für lokale npm-Starts in `frontend/web/.env.local` zusätzlich setzen:
 3. Mit lokalem Supabase-User einloggen
 4. Chat senden
 5. Erwartung: Frontend-Request geht an `POST /api/v1/chat` inkl. Bearer-Token und zeigt Backend-`reply`
+
+## Runbook
+
+### E2E-Runbook (first start)
+2. Supabase lokal starten: `supabase start`
+3. Migrationen anwenden: `supabase db reset`
+4. Backend prüfen: `curl http://localhost:8000/health`
+5. Frontend öffnen: `http://localhost:3000`
+6. Supabase User anlegen 
+7. login at frontend

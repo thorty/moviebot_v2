@@ -274,18 +274,18 @@ Review-fähige Abnahme mit dokumentiertem Happy Path und Negativtests.
 ---
 
 ## Review-Checkliste
-- [ ] Task 1 bestanden: Lokales Setup startet mit `docker compose up` ohne Sondertricks
-- [ ] Task 2 bestanden: `.env.example` und Env-Ladepfad sind vollständig und konsistent
-- [ ] Task 3 bestanden: `GET /health` ist lokal stabil erreichbar
-- [ ] Task 4 bestanden: `frontend/web` ist der einzige produktive Frontend-Pfad; Prototyp wird nur als UI-Quelle genutzt (kein Laufzeitbetrieb)
-- [ ] Task 5 bestanden: Login/Logout-Smoke-Test im produktiven Frontend erfolgreich (mit lokalem Testnutzer aus `auth.users`)
-- [ ] Task 6 bestanden: SQL-Migrationen enthalten Tabellen/Constraints für Conversations und Logs
-- [ ] Subtask 7.1 bestanden: Ohne/ungültiges JWT wird zuverlässig mit 401/403 blockiert
-- [ ] Subtask 7.2 bestanden: Valides JWT liefert eindeutigen User-Kontext im Request-Flow
-- [ ] Subtask 8.1 bestanden: Pro User existiert gleichzeitig nur 1 aktive Conversation
-- [ ] Subtask 8.2 bestanden: Alle User-Eingaben und Bot-Antworten werden append-only gespeichert (kein Überschreiben)
-- [ ] Task 9 bestanden: Produktives Frontend nutzt keine Next-Prototyp-API-Route (`app/api/chat/route.ts`)
-- [ ] Task 10 bestanden: Voller lokaler E2E-Flow inkl. Negativtests läuft reproduzierbar
-- [ ] Für jeden abgeschlossenen Task existiert eine vollständige Lerndoku unter `docs/tasks/task-XX.md`
-- [ ] MVP-Non-Goals wurden nicht implementiert
-- [ ] Readme/Testpfad ist für Product + Engineering nachvollziehbar
+- [x] Task 1 bestanden: Lokales Setup startet mit `docker compose up` ohne Sondertricks
+- [x] Task 2 bestanden: `.env.example` und Env-Ladepfad sind vollständig und konsistent
+- [x] Task 3 bestanden: `GET /health` ist lokal stabil erreichbar
+- [x] Task 4 bestanden: `frontend/web` ist der einzige produktive Frontend-Pfad; Prototyp wird nur als UI-Quelle genutzt (kein Laufzeitbetrieb)
+- [x] Task 5 bestanden: Login/Logout-Smoke-Test im produktiven Frontend erfolgreich (mit lokalem Testnutzer aus `auth.users`)
+- [x] Task 6 bestanden: SQL-Migrationen enthalten Tabellen/Constraints für Conversations und Logs
+- [x] Subtask 7.1 bestanden: Ohne/ungültiges JWT wird zuverlässig mit 401/403 blockiert
+- [x] Subtask 7.2 bestanden: Valides JWT liefert eindeutigen User-Kontext im Request-Flow
+- [x] Subtask 8.1 bestanden: Pro User existiert gleichzeitig nur 1 aktive Conversation
+- [x] Subtask 8.2 bestanden: Alle User-Eingaben und Bot-Antworten werden append-only gespeichert (kein Überschreiben)
+- [x] Task 9 bestanden: Produktives Frontend nutzt keine Next-Prototyp-API-Route (`app/api/chat/route.ts`)
+- [x] Task 10 bestanden: Voller lokaler E2E-Flow inkl. Negativtests läuft reproduzierbar
+- [x] Für jeden abgeschlossenen Task existiert eine vollständige Lerndoku unter `docs/tasks/task-XX.md`
+- [x] MVP-Non-Goals wurden nicht implementiert
+- [x] Readme/Testpfad ist für Product + Engineering nachvollziehbar
