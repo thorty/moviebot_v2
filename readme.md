@@ -1,269 +1,131 @@
 # Moviebot
 
-## Überblick
-Moviebot ist ein LLM-basierter Film- und Serienberater.
+## Overview
+Moviebot is an LLM-based movie and TV recommendation assistant.
 
-Aktuell läuft ein POC mit LangGraph + Gradio. Parallel ist die Migration zu einem Fullstack-MVP geplant (FastAPI + React + Supabase, lokal via Docker Compose).
+Fullstack MVP (FastAPI + React + Supabase, locally via Docker Compose).
 
-## Aktueller Stand (POC)
+## POC
 - Backend: LangGraph
 - Frontend: Gradio
-- Laufender Einstieg: `gradio frontend/gradio/app.py`
+- Current entry point: `gradio frontend/gradio/app.py`
 
-## Zielbild (Fullstack MVP)
+## Fullstack MVP
 - Backend: FastAPI + LangGraph
 - Frontend: React/TypeScript (shadcn/Tailwind)
-- Auth/DB: Supabase (inkl. RLS)
-- Betrieb zuerst lokal End-to-End via Docker Compose
+- Auth/DB: Supabase (including RLS)
+- End-to-end via Docker Compose
 
-## Verbindliche MVP-Entscheidungen
-- Supabase Auth + JWT-Verifikation im Backend pro Request
-- Persistenz speichert alle User-Eingaben und Bot-Antworten append-only (kein Überschreiben)
-- Genau 1 aktive Conversation pro User
-- Keine Zusatzfeatures außerhalb der Plan-Dokumente
+## MVP Decisions
+- Supabase Auth + JWT verification in the backend on every request
+- Persistence stores all user inputs and bot responses append-only (no overwrites)
+- Exactly 1 active conversation per user
 
-## Wichtige Planungsdokumente
-- Sprint-Übersicht: [plans/sprint-cut-overview.md](plans/sprint-cut-overview.md)
-- Sprint-Deliverables: [plans/sprint-cut-deliverables.md](plans/sprint-cut-deliverables.md)
-- Prototyp-Mapping: [plans/prototype-component-mapping.md](plans/prototype-component-mapping.md)
-- Start/Stop + Cloud-Kurzpfad: [docs/start-stop-spickzettel.md](docs/start-stop-spickzettel.md)
 
-## Design-Prototyp Frontend
-Unter [plans/moviebot-web-app](plans/moviebot-web-app) liegt ein vollständiger UI-Prototyp (ohne Login-Seite).
-
-Einordnung:
-- Verwendbar als UI/UX-Basis
-- Nicht direkt produktiv nutzbar
-- Muss vor Einsatz ergänzt/angepasst werden: Login/Auth, produktive Backend-API-Anbindung, Provider-Mapping
-
-## Verwendete APIs (POC)
+## APIs Used (POC)
 - LLM: OpenAI
 - Search: Tavily
 - Metadata/Provider: TMDB
 - Tracing: LangSmith
 
-## Funktionsweise (POC)
+## How It Works (POC)
 - InterviewAgent
-- ContentResearcher (Tool-Nutzung)
+- ContentResearcher (tool usage)
 - State + Memory/Checkpoint
-- Session-Handling
+- Session handling
 
 ### Graph
 ![alt text](graph.png)
 
-## Feature-Status (POC)
+## Feature Status (POC)
 - Clarification Questions ✅
-- Streaming-Provider-Filter ✅
-- Payment-Type-Filter ✅
-- Film/Serie als Filterkriterium ✅
-- Ein-Provider-Optimierung in Suche ✅
-- Fallback-Message verbessert ✅
-- Out-of-scope Handling ✅
-- Mediatheken-Suche (ARD/ZDF) ✅
-- Direktlinks zu Streaming-Providern (offen)
-- Cover Artwork (offen)
+- Streaming provider filter ✅
+- Payment type filter ✅
+- Movie/series as filter criterion ✅
+- Single-provider optimization in search ✅
+- Improved fallback message ✅
+- Out-of-scope handling ✅
+- Public broadcaster search (ARD/ZDF) ✅
+- Direct links to streaming providers (open)
+- Cover artwork (open)
 
-## Nächste Schritte
-1. FastAPI-API-Layer vor bestehende LangGraph-Logik setzen
-2. Supabase Auth/JWT-Verifikation integrieren
-3. React-Frontend auf Basis Prototyp + Login/Auth ergänzen
-4. Lokales E2E-Setup via Docker Compose stabilisieren
 
-## Startkommandos
+## Start Commands
 - POC: `gradio frontend/gradio/app.py`
-- Backend (Zielpfad): `uvicorn main:app --reload`
-- Frontend (Zielpfad): `npm run dev`
+- Backend (target path): `uvicorn main:app --reload`
+- Frontend (target path): `npm run dev`
 - Docker: `docker compose up`
 
-## Task 1 Runbook (lokale Infrastruktur)
+## Task 1 Runbook (Local Infrastructure)
 
-### Enthaltene Services in `docker-compose.yml`
-- App: `backend` auf Port `8000`, `frontend-web` auf Port `3000`
-- Supabase minimal + Studio: `supabase-db`, `supabase-auth`, `supabase-rest`, `supabase-meta`, `supabase-kong`, `supabase-studio`
-- Migrationen: `supabase-migrations` (one-shot, non-destructive; nur neue SQL-Dateien)
+### Services Included in `docker-compose.yml`
+- App: `backend` on port `8000`, `frontend-web` on port `3000`
+- Minimal Supabase + Studio: `supabase-db`, `supabase-auth`, `supabase-rest`, `supabase-meta`, `supabase-kong`, `supabase-studio`
+- Migrations: `supabase-migrations` (one-shot, non-destructive; only new SQL files)
 
-Der gesamte lokale Stack läuft ausschließlich über `docker compose`.
+The entire local stack runs exclusively via `docker compose`.
 
 ### Start
 1. `docker compose up -d`
 2. `docker compose ps`
 3. `docker compose logs --tail=100`
 
-### Restart-Ablauf (reproduzierbar)
+### Restart Flow (Reproducible)
 1. `docker compose down`
 2. `docker compose up -d`
-3. Falls nötig mit frischem Volume-Start: `docker compose down -v && docker compose up -d`
+3. If needed, start with a fresh volume: `docker compose down -v && docker compose up -d`
 
-### Health-/Status-Checks
-- Backend erreichbar: `curl http://localhost:8000`
-- Containerstatus prüfen: `docker compose ps`
-- Supabase API erreichbar: `curl http://localhost:54321/rest/v1/`
-- Supabase Studio erreichbar: `http://localhost:54323`
+### Health/Status Checks
+- Backend reachable: `curl http://localhost:8000`
+- Check container status: `docker compose ps`
+- Supabase API reachable: `curl http://localhost:54321/rest/v1/`
+- Supabase Studio reachable: `http://localhost:54323`
 
-### Hinweis für Task 4
-Der Service `frontend-web` bleibt in Task 1 absichtlich als Platzhalter aktiv. Sobald `frontend/web/package.json` existiert, startet derselbe Service automatisch die echte Web-App.
+### Note for Task 4
+The `frontend-web` service intentionally stays active as a placeholder in Task 1. As soon as `frontend/web/package.json` exists, the same service automatically starts the real web app.
 
-## Task 2 Runbook (Env-Standardisierung)
 
-### Ziel
-Eine zentrale und reproduzierbare Env-Konfiguration ohne versteckte Defaults.
-
-### Datei-Standard
-- Vorlage: `.env.example`
-- Lokal aktiv: `.env` (nicht committen)
-
-### Setup
-1. `cp .env.example .env`
-2. Fehlende Secrets in `.env` ergänzen
-
-### Pflichtvariablen (MVP)
+### Required ENV Variables (MVP)
 - `OPENAI_API_KEY`
 - `TAVILY_API_KEY`
 - `TMDB_BEARER`
-- `SUPABASE_PUBLIC_URL`
+- `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
-- `POSTGRES_PASSWORD`
-- `SUPABASE_DASHBOARD_USERNAME`
-- `SUPABASE_DASHBOARD_PASSWORD`
 - `BACKEND_API_URL`
 - `FRONTEND_WEB_URL`
 
-### Zentraler Ladepfad
-- Env wird über `backend/utils/setupenv.py` geladen.
-- Legacy-Key `tmdb_bearer` bleibt kompatibel und wird auf `TMDB_BEARER` gespiegelt.
-
-### Verifikation
-1. `.env.example` enthält alle Pflichtvariablen.
-2. Nach `cp .env.example .env` startet Compose weiter ohne zusätzliche implizite Werte.
-
-## Task 3 Runbook (FastAPI + Health)
-
-### Ziel
-Backend als echte FastAPI-App mit stabilem Health-Endpoint bereitstellen.
-
-### Umsetzung
-- `main.py` enthält `app = FastAPI(...)`
-- Health-Route: `GET /health`
-- Compose-Backend startet via `uvicorn main:app --host 0.0.0.0 --port 8000`
-
-### Start/Update
-1. `docker compose up -d --build backend`
-2. `docker compose ps`
-
-### Verifikation
-1. `curl http://localhost:8000/health`
-2. Erwartung: JSON mit `status=ok` und `service=moviebot-backend`
-
-## Task 5 Runbook (Frontend Auth-Basis)
-
-### Ziel
-Login-Status im produktiven Frontend nutzbar machen (eingeloggt/nicht eingeloggt).
-
-### Konfiguration
-- Docker-Flow: `frontend-web` übernimmt `VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY` aus Compose-Umgebung.
-- Lokaler npm-Flow: `frontend/web/.env.example` nach `frontend/web/.env.local` kopieren.
-
-### Testnutzer anlegen
-Zeitpunkt: nach Task 1/2 und vor Login-Smoke-Test.
-
-Anlage in Supabase Auth (`auth.users`):
-1. Supabase Studio öffnen (`http://localhost:54323`)
-2. Auth → Users → User manuell anlegen
-3. E-Mail + Passwort für Testnutzer setzen
-
-### Login/Logout Smoke-Test
-1. `docker compose up -d --force-recreate frontend-web`
-2. `curl -sS http://localhost:3000 | head -n 5`
-3. Browser: `http://localhost:3000` öffnen
-4. Mit Testnutzer einloggen
-5. Prüfen: Chat-Seite erscheint + E-Mail/Logout sichtbar
-6. Logout klicken
-7. Prüfen: Login-Form erscheint wieder
-
-## Task 4 Runbook (Produktives Frontend-Grundgerüst)
-
-### Ziel
-`frontend/web` als produktiven Frontend-Pfad bereitstellen und Prototyp klar als UI-Quelle abgrenzen.
-
-### Umsetzung
-- `frontend/web` enthält eine lauffähige React/TypeScript-App (Vite).
-- Kern-Chat-UI aus Prototyp portiert: Layout, Input, Message-Liste, Beispiel-Prompts, Filterpanel.
-- Kein produktiver Laufzeitpfad über `plans/moviebot-web-app`.
-
-### Start/Update
-1. `docker compose up -d --force-recreate frontend-web`
-2. `docker compose ps`
-
-### Verifikation
-1. `curl http://localhost:3000`
-2. Erwartung: HTML-Antwort (Frontend erreichbar)
-3. Optional: im Browser `http://localhost:3000` öffnen und UI prüfen
-
-### Klare Abgrenzung
-- Prototyp (`plans/moviebot-web-app`) ist Referenz.
-- Produktive Laufzeit-App ist ausschließlich `frontend/web`.
-
-## Task 9 Runbook (Produktiver API-Transport im Frontend)
-
-### Ziel
-Frontend sendet Chat-Anfragen direkt an den produktiven Backend-Pfad `POST /api/v1/chat`.
-
-### Verbindlicher Endpoint + Auth
-- Endpoint: `POST /api/v1/chat`
-- Header: `Authorization: Bearer <JWT>`
-- Kein produktiver Transport über `plans/moviebot-web-app/app/api/chat/route.ts`
-
-### Frontend-Konfiguration
-Für lokale npm-Starts in `frontend/web/.env.local` zusätzlich setzen:
-- `VITE_BACKEND_API_URL=http://localhost:8000`
-
-### Request-Vertrag (Frontend → Backend)
-```json
-{
-	"message": "Ich suche einen Thriller",
-	"userstreamingproviders": ["Netflix", "Disney Plus"],
-	"paymenttypes": ["flatrate", "rent"]
-}
-```
-
-### Response-Vertrag (Backend → Frontend)
-```json
-{
-	"status": "accepted",
-	"user_id": "<jwt-sub>",
-	"conversation_id": "<uuid>",
-	"reply": "..."
-}
-```
-
-### Verifikation (Gate)
-1. Backend starten: `uvicorn main:app --reload`
-2. Frontend starten: `cd frontend/web && npm run dev -- --host 0.0.0.0 --port 3000`
-3. Mit lokalem Supabase-User einloggen
-4. Chat senden
-5. Erwartung: Frontend-Request geht an `POST /api/v1/chat` inkl. Bearer-Token und zeigt Backend-`reply`
+### Verification
+1. `.env.example` contains all required variables.
+2. After `cp .env.example .env`, Compose still starts without additional implicit defaults.
 
 ## Runbook
 
-### E2E-Runbook (first start)
-1. `.env` mit den benötigten Keys/Secrets befüllen
-2. Gesamten Stack starten: `docker compose up -d --build`
-3. Laufstatus prüfen: `docker compose ps`
-4. Backend prüfen: `curl http://localhost:8000/health`
-5. Supabase API prüfen: `curl http://localhost:54321/rest/v1/`
-6. Studio öffnen: `http://localhost:54323`
-7. Supabase User anlegen und im Frontend einloggen
+### E2E Runbook (First Start)
+1. Fill `.env` with the required keys/secrets
+2. Start the full stack: `docker compose up -d --build`
+3. Check runtime status: `docker compose ps`
+4. Check backend: `curl http://localhost:8000/health`
+5. Check Supabase API: `curl http://localhost:54321/rest/v1/`
+6. Open Studio: `http://localhost:54323`
+7. Create a Supabase user and sign in via frontend
 
-### E2E-Runbook (stop/start mit Compose)
-1. Alle Container sauber stoppen und entfernen:
+### Create Test User
+
+1. Open Supabase Studio (`http://localhost:54323`)
+2. Auth → Users → create user manually
+3. Set email + password for test user
+
+
+### E2E Runbook (Stop/Start with Compose)
+1. Stop and remove all containers cleanly:
 	- `docker compose down`
-2. Alle Container wieder hochfahren:
+2. Start all containers again:
 	- `docker compose up -d`
-3. Status prüfen:
+3. Check status:
 	- `docker compose ps`
 
-Optionaler kompletter Reset (inkl. Volumes/Daten):
+Optional full reset (including volumes/data):
 - `docker compose down -v`
 - `docker compose up -d`
