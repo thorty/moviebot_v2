@@ -1,6 +1,7 @@
 import json
 from typing import Any
 from urllib import request
+from urllib.error import HTTPError
 
 from backend.utils.setupenv import get_required_env_value, normalize_url_for_runtime
 
@@ -25,6 +26,16 @@ def _call_conversation_rpc(rpc_name: str, access_token: str) -> dict[str, Any]:
     try:
         with request.urlopen(req, timeout=10) as response:
             body = response.read().decode("utf-8")
+    except HTTPError as exc:
+        error_body = ""
+        try:
+            error_body = exc.read().decode("utf-8")
+        except Exception:
+            pass
+        detail = f"status={exc.code}"
+        if error_body:
+            detail = f"{detail}, body={error_body}"
+        raise RuntimeError(f"Failed to call conversations RPC: {rpc_name} ({detail})") from exc
     except Exception as exc:
         raise RuntimeError(f"Failed to call conversations RPC: {rpc_name}") from exc
 

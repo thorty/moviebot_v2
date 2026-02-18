@@ -78,10 +78,11 @@ Einordnung:
 ## Task 1 Runbook (lokale Infrastruktur)
 
 ### Enthaltene Services in `docker-compose.yml`
-- `backend` auf Port `8000` (Task-1 Platzhalter-Service)
-- `frontend-web` auf Port `3000` (läuft als Platzhalter bis Task 4)
+- App: `backend` auf Port `8000`, `frontend-web` auf Port `3000`
+- Supabase minimal + Studio: `supabase-db`, `supabase-auth`, `supabase-rest`, `supabase-meta`, `supabase-kong`, `supabase-studio`
+- Migrationen: `supabase-migrations` (one-shot, non-destructive; nur neue SQL-Dateien)
 
-Supabase lokal läuft über die Supabase CLI (`supabase start`) und stellt den kompletten lokalen Stack bereit (inkl. Postgres/Auth/Studio).
+Der gesamte lokale Stack läuft ausschließlich über `docker compose`.
 
 ### Start
 1. `docker compose up -d`
@@ -96,7 +97,8 @@ Supabase lokal läuft über die Supabase CLI (`supabase start`) und stellt den k
 ### Health-/Status-Checks
 - Backend erreichbar: `curl http://localhost:8000`
 - Containerstatus prüfen: `docker compose ps`
-- Supabase-Status prüfen: `supabase status -o env`
+- Supabase API erreichbar: `curl http://localhost:54321/rest/v1/`
+- Supabase Studio erreichbar: `http://localhost:54323`
 
 ### Hinweis für Task 4
 Der Service `frontend-web` bleibt in Task 1 absichtlich als Platzhalter aktiv. Sobald `frontend/web/package.json` existiert, startet derselbe Service automatisch die echte Web-App.
@@ -118,9 +120,13 @@ Eine zentrale und reproduzierbare Env-Konfiguration ohne versteckte Defaults.
 - `OPENAI_API_KEY`
 - `TAVILY_API_KEY`
 - `TMDB_BEARER`
-- `SUPABASE_URL`
+- `SUPABASE_PUBLIC_URL`
 - `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
+- `POSTGRES_PASSWORD`
+- `SUPABASE_DASHBOARD_USERNAME`
+- `SUPABASE_DASHBOARD_PASSWORD`
 - `BACKEND_API_URL`
 - `FRONTEND_WEB_URL`
 
@@ -163,7 +169,7 @@ Login-Status im produktiven Frontend nutzbar machen (eingeloggt/nicht eingeloggt
 Zeitpunkt: nach Task 1/2 und vor Login-Smoke-Test.
 
 Anlage in Supabase Auth (`auth.users`):
-1. Supabase Studio öffnen (oder verwendete Supabase-Instanz)
+1. Supabase Studio öffnen (`http://localhost:54323`)
 2. Auth → Users → User manuell anlegen
 3. E-Mail + Passwort für Testnutzer setzen
 
@@ -242,9 +248,22 @@ Für lokale npm-Starts in `frontend/web/.env.local` zusätzlich setzen:
 ## Runbook
 
 ### E2E-Runbook (first start)
-2. Supabase lokal starten: `supabase start`
-3. Migrationen anwenden: `supabase db reset`
+1. `.env` mit den benötigten Keys/Secrets befüllen
+2. Gesamten Stack starten: `docker compose up -d --build`
+3. Laufstatus prüfen: `docker compose ps`
 4. Backend prüfen: `curl http://localhost:8000/health`
-5. Frontend öffnen: `http://localhost:3000`
-6. Supabase User anlegen 
-7. login at frontend
+5. Supabase API prüfen: `curl http://localhost:54321/rest/v1/`
+6. Studio öffnen: `http://localhost:54323`
+7. Supabase User anlegen und im Frontend einloggen
+
+### E2E-Runbook (stop/start mit Compose)
+1. Alle Container sauber stoppen und entfernen:
+	- `docker compose down`
+2. Alle Container wieder hochfahren:
+	- `docker compose up -d`
+3. Status prüfen:
+	- `docker compose ps`
+
+Optionaler kompletter Reset (inkl. Volumes/Daten):
+- `docker compose down -v`
+- `docker compose up -d`

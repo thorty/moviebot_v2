@@ -1,110 +1,70 @@
-# Start/Stop Spickzettel (Lokal) + Cloud-Migration
+# Start/Stop Spickzettel (Docker-only)
 
-## 1) Lokalbetrieb: App + Supabase Full Stack
+## 1) Setup-Prinzip
 
-### Empfehlung (Hybrid)
-- App-Services über Docker Compose
-- Supabase-Services über Supabase CLI (ebenfalls Docker-basiert)
-
-So hast du lokal Auth (`auth.users`), Keys (`anon`, `service_role`) und Studio im Browser.
-
----
+- Ein einziges `docker-compose.yml` startet alles: App + Supabase minimal + Studio.
+- Kein `supabase start/stop/db reset` im Daily-Flow.
+- Migrationen laufen als one-shot Service (`supabase-migrations`) non-destructive beim Start.
 
 ## 2) Einmaliges Setup
 
-### Supabase CLI installieren (macOS)
-`brew install supabase/tap/supabase`
-
-### Im Projekt initialisieren
-`cd /Users/A743293/workspace/playground/mb_langgraph_v3`
-
-`supabase init`
-
----
+1. Root `.env` anlegen und befüllen (mindestens):
+   - `POSTGRES_PASSWORD`
+   - `SUPABASE_JWT_SECRET`
+   - `SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_DASHBOARD_USERNAME`
+   - `SUPABASE_DASHBOARD_PASSWORD`
+2. Optional für App-Laufzeit ergänzen:
+   - `OPENAI_API_KEY`
+   - `TAVILY_API_KEY`
+   - `TMDB_BEARER`
 
 ## 3) Start-Reihenfolge (Daily)
 
-### A) App starten (Compose)
-`docker compose up -d`
+1. Kompletten Stack starten:
+   - `docker compose up -d --build`
+2. Status prüfen:
+   - `docker compose ps`
+3. Logs bei Bedarf:
+   - `docker compose logs --tail=200`
 
-### B) Lokalen Supabase Full Stack starten (CLI)
-`supabase start`
+## 4) Wichtige lokale URLs
 
-### C) Status prüfen
-`docker compose ps`
-
-`supabase status`
-
----
-
-## 4) Wichtige URLs und Keys (lokal)
-
-Nach `supabase status -o env` bekommst du typischerweise:
-- API URL: `http://127.0.0.1:54321`
-- Studio URL: `http://127.0.0.1:54323`
-- `PUBLISHABLE_KEY` (entspricht lokal dem bisherigen `anon key`)
-- `SECRET_KEY` (entspricht lokal dem bisherigen `service_role key`)
-- `ANON_KEY`
-- `SERVICE_ROLE_KEY`
-- `JWT_SECRET`
-
-Diese Werte setzen in:
-- Root `.env`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`
-- `frontend/web/.env.local`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-
-Danach Frontend neu starten:
-`docker compose up -d --force-recreate frontend-web`
-
----
+- Frontend: `http://localhost:3000`
+- Backend Health: `http://localhost:8000/health`
+- Supabase API Gateway: `http://localhost:54321`
+- Supabase Studio: `http://localhost:54323`
 
 ## 5) Testnutzer anlegen (`auth.users`)
 
-1. Studio öffnen: `http://127.0.0.1:54323`
-2. Authentication → Users
-3. User anlegen (E-Mail + Passwort)
-4. Login im Frontend testen: `http://localhost:3000`
-
----
+1. Studio öffnen: `http://localhost:54323`
+2. `Authentication` → `Users`
+3. User mit E-Mail + Passwort anlegen
+4. Login im Frontend testen (`http://localhost:3000`)
 
 ## 6) Stop-Reihenfolge
 
-### A) Supabase Full Stack stoppen
-`supabase stop`
+- Normal stoppen:
+  - `docker compose down`
+- Mit Datenlöschung (nur wenn bewusst gewünscht):
+  - `docker compose down -v`
 
-### B) App-Services stoppen
-`docker compose down`
+## 7) Daten & Migrationen
 
-Optional Volumes mit löschen:
-`docker compose down -v`
+- Daten liegen im Docker-Volume (`supabase-db-data`) und bleiben über Neustarts erhalten.
+- Kein automatischer Reset bei `docker compose up`.
+- `supabase-migrations` wendet nur neue SQL-Dateien aus `supabase/migrations` an.
 
----
+## 8) Häufige Stolperfallen
 
-## 7) Häufige Stolperfallen
+- Leere/ungültige `SUPABASE_ANON_KEY` oder `SUPABASE_JWT_SECRET` führen zu Auth-/RLS-Fehlern.
+- Nach Env-Änderungen Services neu erstellen:
+  - `docker compose up -d --force-recreate`
+- Portkonflikte auf `3000`, `54321`, `54323`, `8000` blockieren den Start.
 
-- `http://localhost:54322` im Browser geht nicht: das ist Postgres-Port, kein Webserver.
-- Wenn `supabase start` Portkonflikte meldet, läuft meist bereits ein lokaler Dienst auf den Supabase-Ports (z. B. 54321/54322/54323). Den fremden Dienst stoppen und `supabase start` erneut ausführen.
-- Nach Key-Änderungen Frontend immer neu starten (`--force-recreate`).
+## 9) Serverbetrieb (kurz)
 
----
-
-## 8) Kurz: Wie kommt das später in die Cloud?
-
-### Zielbild
-- Frontend als Web-App deployen (z. B. Vercel/Netlify)
-- Backend als API deployen (z. B. Render/Fly/Container-Host)
-- Supabase als gehostetes Projekt (Cloud)
-
-### Minimaler Migrationspfad
-1. Cloud-Supabase-Projekt erstellen
-2. DB-Schema/Migrationen aus `supabase/migrations` anwenden
-3. Auth in Supabase Cloud aktivieren (Users, Policies)
-4. Cloud-Werte in Env setzen:
-   - Frontend: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-   - Backend: `SUPABASE_URL`, `SUPABASE_JWT_SECRET`, ggf. `SUPABASE_SERVICE_ROLE_KEY`
-5. Frontend + Backend deployen
-6. E2E testen: Login → Chat-Request → Antwort → Persistenz
-
-### Was bleibt gleich?
-- Auth-Flow (JWT)
-- API-Vertrag (`POST /api/v1/chat`)
-- Task-basierte Testlogik/Runbooks
+- Studio nicht öffentlich exponieren (nur intern/VPN/Ingress-Schutz).
+- Secrets nicht im Repo speichern; per Host-Env/Secret-Manager injizieren.
+- Für Deployments denselben Compose-Stack nutzen und Daten-Volume persistent halten.

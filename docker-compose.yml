@@ -1,11 +1,201 @@
 name: moviebot-local
 
 services:
+  supabase-db:
+    image: supabase/postgres:15.8.1.085
+    container_name: moviebot-supabase-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_EXP: ${SUPABASE_JWT_EXPIRY:-3600}
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:ro
+      - ./volumes/db/auth-ownership.sql:/docker-entrypoint-initdb.d/init-scripts/99-auth-ownership.sql:ro
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  supabase-auth:
+    image: supabase/gotrue:v2.186.0
+    container_name: moviebot-supabase-auth
+    restart: unless-stopped
+    depends_on:
+      supabase-db-config:
+        condition: service_completed_successfully
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:54321}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres}@supabase-db:5432/${POSTGRES_DB:-postgres}
+      GOTRUE_SITE_URL: ${FRONTEND_WEB_URL:-http://localhost:3000}
+      GOTRUE_URI_ALLOW_LIST: ${SUPABASE_ADDITIONAL_REDIRECT_URLS:-http://localhost:3000,http://127.0.0.1:3000}
+      GOTRUE_DISABLE_SIGNUP: ${SUPABASE_DISABLE_SIGNUP:-false}
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: ${SUPABASE_JWT_AUDIENCE:-authenticated}
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${SUPABASE_JWT_EXPIRY:-3600}
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${SUPABASE_ENABLE_EMAIL_SIGNUP:-true}
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${SUPABASE_ENABLE_ANONYMOUS_USERS:-false}
+      GOTRUE_MAILER_AUTOCONFIRM: ${SUPABASE_EMAIL_AUTOCONFIRM:-true}
+      GOTRUE_EXTERNAL_PHONE_ENABLED: false
+      GOTRUE_SMS_AUTOCONFIRM: false
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+
+  supabase-rest:
+    image: postgrest/postgrest:v14.5
+    container_name: moviebot-supabase-rest
+    restart: unless-stopped
+    depends_on:
+      supabase-migrations:
+        condition: service_completed_successfully
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-postgres}@supabase-db:5432/${POSTGRES_DB:-postgres}
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_APP_SETTINGS_JWT_EXP: ${SUPABASE_JWT_EXPIRY:-3600}
+    command: ["postgrest"]
+
+  supabase-meta:
+    image: supabase/postgres-meta:v0.95.2
+    container_name: moviebot-supabase-meta
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      CRYPTO_KEY: ${SUPABASE_PG_META_CRYPTO_KEY:-dev-pg-meta-crypto-key-at-least-32-characters}
+
+  supabase-db-config:
+    image: postgres:17-alpine
+    container_name: moviebot-supabase-db-config
+    restart: "no"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: supabase-db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_USER: supabase_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    command: ["sh", "/workspace/scripts/configure-supabase-db.sh"]
+
+  supabase-studio:
+    image: supabase/studio:2026.02.16-sha-26c615c
+    container_name: moviebot-supabase-studio
+    restart: unless-stopped
+    depends_on:
+      supabase-meta:
+        condition: service_started
+    environment:
+      HOSTNAME: "::"
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      POSTGRES_HOST: supabase-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PG_META_CRYPTO_KEY: ${SUPABASE_PG_META_CRYPTO_KEY:-dev-pg-meta-crypto-key-at-least-32-characters}
+      DEFAULT_ORGANIZATION_NAME: ${SUPABASE_STUDIO_ORG:-Moviebot}
+      DEFAULT_PROJECT_NAME: ${SUPABASE_STUDIO_PROJECT:-Moviebot Local}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:54321}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+      AUTH_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
+      NEXT_PUBLIC_ENABLE_LOGS: "false"
+    ports:
+      - "54323:3000"
+
+  supabase-kong:
+    image: kong:2.8.1
+    container_name: moviebot-supabase-kong
+    restart: unless-stopped
+    depends_on:
+      supabase-auth:
+        condition: service_healthy
+      supabase-rest:
+        condition: service_started
+      supabase-meta:
+        condition: service_started
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,request-termination,ip-restriction
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+      DASHBOARD_USERNAME: ${SUPABASE_DASHBOARD_USERNAME:-supabase}
+      DASHBOARD_PASSWORD: ${SUPABASE_DASHBOARD_PASSWORD:-change-me-please}
+    entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
+    ports:
+      - "54321:8000"
+
+  supabase-migrations:
+    image: postgres:17-alpine
+    container_name: moviebot-supabase-migrations
+    restart: "no"
+    depends_on:
+      supabase-db-config:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: supabase-db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_USER: supabase_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    command: ["sh", "/workspace/scripts/run-migrations.sh"]
+
   backend:
     image: python:3.12-slim
     container_name: moviebot-backend
     working_dir: /workspace
+    depends_on:
+      supabase-migrations:
+        condition: service_completed_successfully
     command: sh -c "pip install --no-cache-dir -r requirements-docker.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+    environment:
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
+      FRONTEND_WEB_URL: ${FRONTEND_WEB_URL:-http://localhost:3000}
+      BACKEND_API_URL: ${BACKEND_API_URL:-http://localhost:8000}
     volumes:
       - ./:/workspace
     ports:
@@ -22,12 +212,21 @@ services:
     image: node:20-alpine
     container_name: moviebot-frontend-web
     working_dir: /workspace/frontend/web
+    depends_on:
+      backend:
+        condition: service_healthy
+      supabase-kong:
+        condition: service_started
     environment:
-      VITE_SUPABASE_URL: ${SUPABASE_URL:-}
-      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:54321}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      VITE_BACKEND_API_URL: ${BACKEND_API_URL:-http://localhost:8000}
     command: sh -c "if [ -f package.json ]; then if [ -f .env ]; then set -a; . ./.env; set +a; fi; npm install && npm run dev -- --host 0.0.0.0 --port 3000; else echo 'frontend/web not initialized yet (Task 4). Keeping container alive for Task 1.'; tail -f /dev/null; fi"
     volumes:
       - ./:/workspace
     ports:
       - "3000:3000"
     restart: unless-stopped
+
+volumes:
+  supabase-db-data:
