@@ -79,7 +79,7 @@ The entire local stack runs exclusively via `docker compose`.
 - Backend reachable: `curl http://localhost:8000`
 - Check container status: `docker compose ps`
 - Supabase API reachable: `curl http://localhost:54321/rest/v1/`
-- Supabase Studio reachable: `http://localhost:54323`
+- Supabase Studio reachable (with login): `http://localhost:54321`
 
 ### Note for Task 4
 The `frontend-web` service intentionally stays active as a placeholder in Task 1. As soon as `frontend/web/package.json` exists, the same service automatically starts the real web app.
@@ -93,6 +93,8 @@ The `frontend-web` service intentionally stays active as a placeholder in Task 1
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
+- `SUPABASE_DASHBOARD_USERNAME`
+- `SUPABASE_DASHBOARD_PASSWORD`
 - `BACKEND_API_URL`
 - `FRONTEND_WEB_URL`
 
@@ -108,12 +110,12 @@ The `frontend-web` service intentionally stays active as a placeholder in Task 1
 3. Check runtime status: `docker compose ps`
 4. Check backend: `curl http://localhost:8000/health`
 5. Check Supabase API: `curl http://localhost:54321/rest/v1/`
-6. Open Studio: `http://localhost:54323`
+6. Open Studio: `http://localhost:54321` (Kong Basic Auth)
 7. Create a Supabase user and sign in via frontend
 
 ### Create Test User
 
-1. Open Supabase Studio (`http://localhost:54323`)
+1. Open Supabase Studio (`http://localhost:54321`)
 2. Auth → Users → create user manually
 3. Set email + password for test user
 
