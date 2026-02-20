@@ -17,6 +17,20 @@ load_environment(override=True)
 TAVILY_API_KEY = os.getenv('TAVILY_API_KEY')
 SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
 
+
+def _build_title_key(title_info: Any) -> tuple[str, str]:
+    """Create a stable deduplication key from title entries."""
+    if isinstance(title_info, dict):
+        raw_title = title_info.get("title", "")
+        raw_media_type = title_info.get("media_type", "")
+    else:
+        raw_title = title_info
+        raw_media_type = ""
+
+    title = str(raw_title).strip().casefold()
+    media_type = str(raw_media_type).strip().casefold()
+    return (title, media_type)
+
 @tool
 def filter_streaming_providers(titleList: list, userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
     """Filters the streaming providers based on the user's preferences.
@@ -48,19 +62,52 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
     # choose streeming providers based on properties
     userstreamingproviders = choose_streaming_providers(userstreamingproviders, paymenttypes)                      
     print(f"[TOOL] filter_streaming_providers called: {len(titleList)} titles, providers: {userstreamingproviders}")
+
+    # Deduplicate incoming titles before TMDB calls to avoid redundant lookups/results
+    seen_input_keys = set()
+    unique_title_list = []
+    for title_info in titleList:
+        key = _build_title_key(title_info)
+        if not key[0]:
+            continue
+        if key in seen_input_keys:
+            continue
+        seen_input_keys.add(key)
+        unique_title_list.append(title_info)
+
+    removed_input_duplicates = len(titleList) - len(unique_title_list)
+    if removed_input_duplicates > 0:
+        print(f"[TOOL] Removed {removed_input_duplicates} duplicate title(s) from input")
     
     # Warnung wenn zu wenige Titel
-    if len(titleList) < 30:
-        print(f"[TOOL] ⚠️ WARNING: Only {len(titleList)} titles provided. Recommend 50-100+ for better discovery!")
+    if len(unique_title_list) < 30:
+        print(f"[TOOL] ⚠️ WARNING: Only {len(unique_title_list)} titles provided. Recommend 50-100+ for better discovery!")
     
-    filtered_titles = get_filtered_titles_tmdb(titleList, userstreamingproviders)
+    filtered_titles = get_filtered_titles_tmdb(unique_title_list, userstreamingproviders)
+
+    # Deduplicate TMDB results as a second safety net
+    deduplicated_filtered_titles = []
+    seen_result_keys = set()
+    if filtered_titles:
+        for title_info in filtered_titles:
+            key = _build_title_key(title_info)
+            if not key[0]:
+                continue
+            if key in seen_result_keys:
+                continue
+            seen_result_keys.add(key)
+            deduplicated_filtered_titles.append(title_info)
+
+    removed_result_duplicates = (len(filtered_titles) if filtered_titles else 0) - len(deduplicated_filtered_titles)
+    if removed_result_duplicates > 0:
+        print(f"[TOOL] Removed {removed_result_duplicates} duplicate title(s) from TMDB results")
     
     # Strukturiere die Ergebnisse für besseres Tracking
     available_titles = []
     unavailable_titles = []
     
-    if filtered_titles:
-        for title_info in filtered_titles:
+    if deduplicated_filtered_titles:
+        for title_info in deduplicated_filtered_titles:
             if isinstance(title_info, dict):
                 # Prüfe ob Titel verfügbar ist (flatproviders oder rentproviders vorhanden)
                 has_availability = False                
@@ -79,9 +126,11 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
     result = {
         'available_titles': available_titles,
         'unavailable_titles': unavailable_titles,
-        'total_checked': len(titleList),
+        'total_checked': len(unique_title_list),
+        'duplicates_removed_input': removed_input_duplicates,
+        'duplicates_removed_results': removed_result_duplicates,
         'found_count': len(available_titles),
-        'raw_results': filtered_titles
+        'raw_results': deduplicated_filtered_titles
     }
     
     print(f"[TOOL] Results: {len(available_titles)} available, {len(unavailable_titles)} unavailable")
