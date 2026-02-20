@@ -123,8 +123,6 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         "conversation_id": conversation_id,
         "userstreamingproviders": payload.userstreamingproviders,
         "paymenttypes": payload.paymenttypes,
-        "found_titles": [],
-        "analystresult": "",
     }
     config = {
         "configurable": {"thread_id": payload.thread_id or f"conversation:{conversation_id}"},

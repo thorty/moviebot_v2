@@ -14,46 +14,62 @@ def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: 
   - If paymenttypes contains only 'free': filter against FreeProvider and return matched FreeProvider values
   - If paymenttypes contains 'rent' (or mixed types): filter against BOTH Provider and FreeProvider enums
   
-  Uses improved fuzzy matching to handle variations like "MagentaTV" vs "Magenta TV+".
-  Returns ALL matching canonical provider names from the respective enum(s).
+  Uses conservative fuzzy matching to handle expected variants like:
+  - "Amazon" -> "Amazon Prime Video"
+  - "Magenta TV" -> "Magenta TV+"
+  while avoiding false positives like "Disney Plus" -> "Paramount Plus".
   """
+  def normalize(value: str) -> str:
+    return value.lower().replace(' ', '').replace('+', '').replace('-', '')
+
+  def significant_tokens(value: str) -> set[str]:
+    stop_tokens = {"plus", "tv", "video"}
+    tokens = value.lower().replace('+', ' ').replace('-', ' ').split()
+    return {token for token in tokens if token and token not in stop_tokens}
+
+  def is_match(user_provider: str, reference_provider: str) -> bool:
+    user_lower = user_provider.lower()
+    ref_lower = reference_provider.lower()
+
+    if user_lower == ref_lower:
+      return True
+
+    user_norm = normalize(user_provider)
+    ref_norm = normalize(reference_provider)
+    user_sig = significant_tokens(user_provider)
+    ref_sig = significant_tokens(reference_provider)
+
+    shared_sig = user_sig & ref_sig
+    if not shared_sig:
+      return False
+
+    return (
+      user_norm in ref_norm
+      or ref_norm in user_norm
+      or user_lower in ref_lower
+      or ref_lower in user_lower
+      or user_sig.issubset(ref_sig)
+      or ref_sig.issubset(user_sig)
+    )
+
   # Determine which enum(s) to use based on payment types
-  if paymenttypes == ["free"]:
+  if paymenttypes == ["free"] or paymenttypes == ["flatrate"]:
     # Only free content - use FreeProvider
     reference_providers = [fp.value for fp in FreeProvider]
   else:
-    # Rent or mixed payment types - use BOTH enums to get all variations
-    # This ensures we get both "MagentaTV" (rent) and "Magenta TV+" (free) when both payment types are selected
-    reference_providers = list(set([p.value for p in Provider] + [fp.value for fp in FreeProvider]))
+    # Rent or mixed payment types - use BOTH enums while preserving deterministic order
+    reference_providers = [p.value for p in Provider]
+    for free_provider in [fp.value for fp in FreeProvider]:
+      if free_provider not in reference_providers:
+        reference_providers.append(free_provider)
   
   filtered_providers = []
+  seen = set()
   for user_provider in userstreamingproviders:
-    user_lower = user_provider.lower()
-    
-    # Check for exact match first
-    if user_provider in reference_providers:
-      filtered_providers.append(user_provider)
-    
-    # ALWAYS do fuzzy matching to find all variations (e.g., "MagentaTV" AND "Magenta TV+")
-    # Remove common separators for better matching (e.g., "MagentaTV" vs "Magenta TV+")
-    user_normalized = user_lower.replace(' ', '').replace('+', '').replace('-', '')
-    user_words = set(user_lower.split())
-    
     for ref_provider in reference_providers:
-      ref_lower = ref_provider.lower()
-      ref_normalized = ref_lower.replace(' ', '').replace('+', '').replace('-', '')
-      ref_words = set(ref_lower.split())
-      
-      # Multiple matching strategies:
-      # 1. Normalized strings contain each other (handles "MagentaTV" vs "Magenta TV+")
-      # 2. Word overlap (handles "Amazon Prime" vs "Amazon Prime Video")
-      # 3. One string contains the other
-      if (user_normalized in ref_normalized or ref_normalized in user_normalized or
-          (user_words & ref_words) or 
-          (user_lower in ref_lower) or (ref_lower in user_lower)):
-        # Avoid duplicates
-        if ref_provider not in filtered_providers:
-          filtered_providers.append(ref_provider)
+      if is_match(user_provider, ref_provider) and ref_provider not in seen:
+        seen.add(ref_provider)
+        filtered_providers.append(ref_provider)
   
   return filtered_providers
   

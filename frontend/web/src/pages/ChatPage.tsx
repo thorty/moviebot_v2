@@ -6,6 +6,7 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessages, type ChatMessage } from "@/components/chat/ChatMessages"
 import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
+import { ApiHttpError } from "@/lib/chatApi"
 import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
 // Fallback UUID generator für Browser ohne crypto.randomUUID() (z.B. Firefox über HTTP)
@@ -23,21 +24,11 @@ function generateUUID(): string {
 
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
-  providers: ["netflix", "disney-plus", "amazon", "wow", "paramount-plus", "apple-tv", "magenta-tv"],
-  paymentTypes: ["flatrate", "rent"],
+  providers: ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
+  paymentTypes: ["free", "rent"],
 }
 
-const PROVIDER_MAP: Record<string, string> = {
-  netflix: "Netflix",
-  "disney-plus": "Disney Plus",
-  amazon: "Amazon Prime Video",
-  wow: "WOW",
-  "paramount-plus": "Paramount Plus",
-  "apple-tv": "Apple TV Plus",
-  "magenta-tv": "MagentaTV",
-}
-
-const DEFAULT_PAYMENT_TYPES = ["flatrate", "rent"]
+const DEFAULT_PAYMENT_TYPES = ["free", "rent"]
 
 const LOADING_HINTS = [
   "suche nach den besten Treffern ",
@@ -47,6 +38,8 @@ const LOADING_HINTS = [
   "lese Bewertungen ",
   "denke über den Sinn des Lebens nach ",  
 ]
+
+const GENERIC_BACKEND_500_MESSAGE = "Sorry da ist leider etwas schief gegangen. Versuch es gerne erneut."
 
 type ChatPageProps = {
   userEmail?: string
@@ -106,9 +99,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     const requestProviders =
       filters.source === "mediathek"
         ? ["Mediatheken"]
-        : (filters.providers.length > 0 ? filters.providers : DEFAULT_FILTERS.providers).map(
-            (provider) => PROVIDER_MAP[provider] || provider
-          )
+        : (filters.providers.length > 0 ? filters.providers : DEFAULT_FILTERS.providers)
     const requestPaymentTypes =
       filters.source === "mediathek"
         ? ["free"]
@@ -130,11 +121,16 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       }
       setMessages((current) => [...current, botMessage])
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
+      const errorMessage =
+        error instanceof ApiHttpError && error.status === 500
+          ? GENERIC_BACKEND_500_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Unbekannter Fehler"
       const botMessage: ChatMessage = {
         id: generateUUID(),
         role: "assistant",
-        content: `Fehler beim Senden an das Backend: ${errorMessage}`,
+        content: errorMessage,
       }
       setMessages((current) => [...current, botMessage])
     } finally {
@@ -175,11 +171,16 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       setMessages([])
       setInput("")
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
+      const errorMessage =
+        error instanceof ApiHttpError && error.status === 500
+          ? GENERIC_BACKEND_500_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Unbekannter Fehler"
       const botMessage: ChatMessage = {
         id: generateUUID(),
         role: "assistant",
-        content: `Fehler beim Starten eines neuen Chats: ${errorMessage}`,
+        content: errorMessage,
       }
       setMessages((current) => [...current, botMessage])
     } finally {
