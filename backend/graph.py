@@ -88,6 +88,42 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
     print(f"{'='*80}\n")
 
 
+def _remove_prior_turn_tool_messages(messages: list[Any]) -> list[Any]:
+    """
+    Remove tool execution traces from earlier user turns to keep context compact.
+
+    For turns before the latest human message, removes:
+    - tool messages, and
+    - assistant messages that contain tool_calls.
+
+    Keeps messages from the current turn (after latest human), so ongoing
+    tool loops still work.
+    """
+    if not messages:
+        return messages
+
+    latest_human_index = -1
+    for idx, msg in enumerate(messages):
+        if getattr(msg, "type", "") == "human":
+            latest_human_index = idx
+
+    pruned_messages: list[Any] = []
+    for idx, msg in enumerate(messages):
+        msg_type = getattr(msg, "type", "")
+        is_prior_turn = idx <= latest_human_index
+        has_tool_calls = bool(getattr(msg, "tool_calls", None))
+
+        if is_prior_turn and msg_type == "tool":
+            continue
+
+        if is_prior_turn and msg_type == "ai" and has_tool_calls:
+            continue
+
+        pruned_messages.append(msg)
+
+    return pruned_messages
+
+
 def create_scope_guard(model):
     """Factory function for pre-routing in-scope / out-of-scope requests."""
     in_scope_pattern = re.compile(
@@ -403,7 +439,15 @@ def create_interest_analyst(model):
         
         sys_msg = SystemMessage(content=get_interest_analyst_prompt())
         
-        response = model.invoke([sys_msg] + state["messages"])          
+        original_messages = state.get("messages", [])
+        llm_messages = _remove_prior_turn_tool_messages(original_messages)
+        removed_count = len(original_messages) - len(llm_messages)
+        if removed_count > 0:
+            print(
+                f"[CONTEXT_PRUNE][interest_analyst] total_messages={len(original_messages)} "
+                f"after_prune={len(llm_messages)} removed={removed_count}"
+            )
+        response = model.invoke([sys_msg] + llm_messages)
         response_text = response.content.lower() if isinstance(response.content, str) else str(response.content).lower()
         is_finished = "#finished#" in response_text
         
@@ -486,7 +530,15 @@ def create_content_researcher(model):
             base_prompt += blacklist_note
         
         sys_msg = SystemMessage(content=base_prompt)
-        response = model_with_searchtools.invoke([sys_msg] + state["messages"])
+        original_messages = state.get("messages", [])
+        llm_messages = _remove_prior_turn_tool_messages(original_messages)
+        removed_count = len(original_messages) - len(llm_messages)
+        if removed_count > 0:
+            print(
+                f"[CONTEXT_PRUNE][content_researcher] total_messages={len(original_messages)} "
+                f"after_prune={len(llm_messages)} removed={removed_count}"
+            )
+        response = model_with_searchtools.invoke([sys_msg] + llm_messages)
         
         # ALWAYS add response to messages first (for tools_condition to work)
         result: dict[str, Any] = {
