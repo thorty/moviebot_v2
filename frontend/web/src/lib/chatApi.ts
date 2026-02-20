@@ -21,6 +21,27 @@ export type NewChatResponsePayload = {
   conversation_id: string
 }
 
+export class ApiHttpError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = "ApiHttpError"
+    this.status = status
+  }
+}
+
+async function buildHttpError(response: Response): Promise<ApiHttpError> {
+  const fallback = `Backend-Fehler (${response.status})`
+
+  try {
+    const errorBody = await response.json()
+    return new ApiHttpError(response.status, errorBody?.detail || fallback)
+  } catch {
+    return new ApiHttpError(response.status, fallback)
+  }
+}
+
 async function getAccessToken(): Promise<string> {
   if (!supabase) {
     throw new Error("Supabase ist nicht konfiguriert.")
@@ -51,13 +72,7 @@ export async function sendChatMessage(payload: ChatRequestPayload): Promise<Chat
   })
 
   if (!response.ok) {
-    const fallback = `Backend-Fehler (${response.status})`
-    try {
-      const errorBody = await response.json()
-      throw new Error(errorBody?.detail || fallback)
-    } catch {
-      throw new Error(fallback)
-    }
+    throw await buildHttpError(response)
   }
 
   return (await response.json()) as ChatResponsePayload
@@ -75,13 +90,7 @@ export async function startNewChatContext(): Promise<NewChatResponsePayload> {
   })
 
   if (!response.ok) {
-    const fallback = `Backend-Fehler (${response.status})`
-    try {
-      const errorBody = await response.json()
-      throw new Error(errorBody?.detail || fallback)
-    } catch {
-      throw new Error(fallback)
-    }
+    throw await buildHttpError(response)
   }
 
   return (await response.json()) as NewChatResponsePayload

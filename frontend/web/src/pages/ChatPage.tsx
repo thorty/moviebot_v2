@@ -6,6 +6,7 @@ import { ChatInput } from "@/components/chat/ChatInput"
 import { ChatMessages, type ChatMessage } from "@/components/chat/ChatMessages"
 import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
+import { ApiHttpError } from "@/lib/chatApi"
 import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
 const DEFAULT_FILTERS: Filters = {
@@ -24,6 +25,8 @@ const LOADING_HINTS = [
   "lese Bewertungen ",
   "denke über den Sinn des Lebens nach ",  
 ]
+
+const GENERIC_BACKEND_500_MESSAGE = "Sorry da ist leider etwas schief gegangen. Versuch es gerne erneut."
 
 type ChatPageProps = {
   userEmail?: string
@@ -105,11 +108,16 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       }
       setMessages((current) => [...current, botMessage])
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
+      const errorMessage =
+        error instanceof ApiHttpError && error.status === 500
+          ? GENERIC_BACKEND_500_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Unbekannter Fehler"
       const botMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Fehler beim Senden an das Backend: ${errorMessage}`,
+        content: errorMessage,
       }
       setMessages((current) => [...current, botMessage])
     } finally {
@@ -150,11 +158,16 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       setMessages([])
       setInput("")
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
+      const errorMessage =
+        error instanceof ApiHttpError && error.status === 500
+          ? GENERIC_BACKEND_500_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Unbekannter Fehler"
       const botMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Fehler beim Starten eines neuen Chats: ${errorMessage}`,
+        content: errorMessage,
       }
       setMessages((current) => [...current, botMessage])
     } finally {
