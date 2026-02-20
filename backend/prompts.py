@@ -5,31 +5,32 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
 
             ### Your Research Process (Internal - Don't show these steps) ###
             
-            **Step 1: Precision-First Knowledge Base Research**
-            - Start with your knowledge of films and series, but prioritize precision over volume
-            - Generate ONLY 15-25 highly fitting titles based on: {analystresult}
+            **Step 1: Extensive Knowledge Base Research**
+            - Start with your extensive knowledge of films and series
+            - Generate AT LEAST 35-50 fitting titles based on: {analystresult}
             - **WICHTIG: Priorisiere Titel die häufig in Flatrate-Angeboten sind**
-            - Mix of: Blockbusters (45%), Popular catalog titles (35%), Hidden Gems (20%)
+            - Mix of: Blockbusters (30%), Hidden Gems (40%), Cult Classics (20%), Recent Releases (10%)
             - Consider different:
               • Genres and sub-genres
               • Release years (1985-2024)
               • Different countries/languages (not just Hollywood)
               • Various ratings (not only highly rated ones)
-              • Bevorzuge bekannte, stabile Katalogtitel statt obskurer Nischen-Titel
+              • Lesser-known but quality titles
               • **Bevorzuge Titel die typischerweise in Streaming-Flatrates verfügbar sind**
             
-            **Step 2: Provider-First Web Research (Targeted, not broad)** 
-            - Create 3-4 provider-specific search queries to maximize availability precision:
-              • "[Provider] [Genre] Filme/Serien aktuell verfügbar"
-              • "[Provider] Empfehlungen [Genre] Flatrate"
-              • "Was läuft auf [Provider] ähnlich wie [bekannte Titel]"
-              • "[Provider] Highlights [Genre] 2020-2025"
+            **Step 2: Efficient Multi-Query Web Research** 
+            - Create 3-5 strategic search queries to maximize coverage:
+              • Genre-based: "[Genre] beste Filme/Serien 2010-2024"
+              • Similarity-based: "Filme/Serien wie [bekannte Titel]"
+              • Hidden gems: "[Genre] underrated films hidden gems international"
+              • Decade-specific: "[Genre] films 1990s 2000s 2010s 2020s"
+              • Platform-hints: "best [genre] streaming recommendations"
             - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd
             - Avoid: werstreamtes.de
-            - GOAL: Add only high-confidence candidates and keep total candidate list at 20-30
+            - GOAL: Collect 50-80 titles total before filtering (balance quality & speed)
             
             **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
-            - Combine knowledge + web results (target 20-30 titles in attempt 1)
+            - Combine knowledge + web results (aim for 50-80 titles total)
             - Remove duplicates, assess relevance
             - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
               [
@@ -43,12 +44,10 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             - **CRITICAL:** Use these exact providers and payment types:
               → userstreamingproviders: {', '.join(userstreamingproviders)}
               → paymenttypes: {', '.join(paymenttypes)}              
-            - Use `filter_streaming_providers` with ONLY your best 20-30 candidates first
-            - **EARLY-STOP:** If you already have >=6 available titles after filtering, stop searching and finalize output
-            - If you have 2-5 available titles, do ONE focused expansion (+10-15 candidates max) and filter again
+            - Use `filter_streaming_providers` with ALL collected titles (send large list!)
             - **WICHTIG - Retry-Limit:**
-              • If <2 suitable titles after first filter: Try ONCE more with provider-specific, higher-confidence search
-              • If still <2 titles: Try ONE final time with slightly broader but still provider-aware search
+              • If <2 suitable titles after first filter: Try ONCE more with broader search
+              • If still <2 titles: Try ONE final time with very broad search (other genres/years)
               • Maximum 3 attempts total (1 initial + 2 retries)
               • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
             
@@ -123,8 +122,8 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         ### Your Research Process (Internal - Don't show these steps) ###
 
-        **Step 1: MINIMAL Precision-First Knowledge Base Research**
-        - Generate ONLY 8-12 VERY WELL-KNOWN titles from your knowledge that are LIKELY available on {userstreamingprovider}
+        **Step 1: MINIMAL Knowledge Base Research**
+        - Generate ONLY 10-15 VERY WELL-KNOWN titles from your knowledge that are LIKELY available on {userstreamingprovider}
         - Focus ONLY on major blockbusters and popular series that streaming services typically have
         - **KRITISCH: Verwende dein Wissen nur minimal - die Verfügbarkeit ändert sich ständig!**
         - Examples of likely titles: Popular Netflix Originals (if Netflix), Disney franchises (if Disney+), etc.
@@ -141,10 +140,10 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
           • "Aktuelle {userstreamingprovider} Highlights [relevante Keywords]"
         - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd, justwatch
         - Avoid: werstreamtes.de
-        - **GOAL: Collect 18-28 titles PRIMARILY from web research (web = 85%, knowledge = 15%)**
+        - **GOAL: Collect 35-50 titles PRIMARILY from web research (web = 80%, knowledge = 20%)**
 
         **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
-        - Combine knowledge + web results (aim for 18-28 titles total, PRIORITIZE web research results)
+        - Combine knowledge + web results (aim for 35-50 titles total, PRIORITIZE web research results)
         - Remove duplicates, assess relevance
         - **WICHTIG: Da du provider-spezifisch gesucht hast, sollten mehr Titel verfügbar sein!**
         - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
@@ -159,9 +158,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         - **CRITICAL:** When calling `filter_streaming_providers` tool, use ONLY this provider and specified payment types:
           → userstreamingproviders: ["{userstreamingprovider}"]
           → paymenttypes: {', '.join(paymenttypes)}
-        - Use `filter_streaming_providers` with your best 18-28 candidates first
-        - **EARLY-STOP:** If >=6 available titles are found, stop searching and finalize output
-        - If 2-5 titles are found, do ONE focused expansion (+8-12 candidates max) and filter again
+        - Use `filter_streaming_providers` with ALL collected titles (send large list!)
         - **WICHTIG - Retry-Limit:**
           • If <2 suitable titles after first filter: Try ONCE more with MORE SPECIFIC web search for "{userstreamingprovider} verfügbar"
           • If still <2 titles: Try ONE final time with very broad "{userstreamingprovider}" search (any genre)
