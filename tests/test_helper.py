@@ -22,6 +22,7 @@ class TestFilterStreamingProvidersHelper:
         assert "Netflix" in result
         assert "Disney Plus" in result
         assert "Amazon Prime Video" in result
+        assert "Paramount Plus" not in result  
     
     def test_fuzzy_match_amazon_prime(self):
         """Test fuzzy matching for Amazon Prime variants for free content (FreeProvider)"""
@@ -33,6 +34,7 @@ class TestFilterStreamingProvidersHelper:
         assert len(result) == 2
         assert "Amazon Prime Video" in result
         assert "Netflix" in result
+        assert "Paramount Plus" not in result
     
     def test_fuzzy_match_amazon_video(self):
         """Test fuzzy matching for Amazon for free content (FreeProvider)"""

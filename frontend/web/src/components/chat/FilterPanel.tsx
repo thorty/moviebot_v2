@@ -3,17 +3,17 @@ import { CreditCard, Monitor, ShoppingCart, Tv } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STREAMING_PROVIDERS = [
-  { id: "netflix", name: "Netflix", color: "#E50914" },
-  { id: "disney-plus", name: "Disney+", color: "#113CCF" },
-  { id: "amazon", name: "Amazon", color: "#00A8E1" },
-  { id: "wow", name: "WOW", color: "#6B21A8" },
-  { id: "paramount-plus", name: "Paramount+", color: "#0064FF" },
-  { id: "apple-tv", name: "Apple TV+", color: "#A3A3A3" },
-  { id: "magenta-tv", name: "Magenta TV", color: "#E20074" },
+  { id: "Netflix", name: "Netflix", color: "#E50914" },
+  { id: "Disney Plus", name: "Disney Plus", color: "#113CCF" },
+  { id: "Amazon", name: "Amazon", color: "#00A8E1" },
+  { id: "WOW", name: "WOW", color: "#6B21A8" },
+  { id: "Paramount Plus", name: "Paramount Plus", color: "#0064FF" },
+  { id: "Apple TV", name: "Apple TV", color: "#A3A3A3" },
+  { id: "MagentaTV", name: "MagentaTV", color: "#E20074" },
 ] as const
 
 export type FilterSource = "streaming" | "mediathek"
-export type PaymentType = "flatrate" | "rent"
+export type PaymentType = "free" | "rent"
 
 export interface Filters {
   source: FilterSource
@@ -27,7 +27,7 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
-  const AUSLEIHEN_PAYMENT_TYPES: PaymentType[] = ["flatrate", "rent"]
+  const DEFAULT_STREAMING_PAYMENT_TYPES: PaymentType[] = ["free", "rent"]
   const FLATRATE_COLOR = "#22C55E"
   const AUSLEIHEN_COLOR = "#F59E0B"
 
@@ -43,7 +43,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
     onFiltersChange({
       source,
       providers: [],
-      paymentTypes: source === "streaming" ? AUSLEIHEN_PAYMENT_TYPES : [],
+      paymentTypes: source === "streaming" ? DEFAULT_STREAMING_PAYMENT_TYPES : [],
     })
   }
 
@@ -114,15 +114,14 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">Bezahlmodell:</span>
               {(() => {
-                const isFlatrateSelected = filters.paymentTypes.includes("flatrate")
-                const isAusleihenSelected =
-                  filters.paymentTypes.includes("flatrate") && filters.paymentTypes.includes("rent")
+                const isFlatrateSelected = filters.paymentTypes.includes("free")
+                const isAusleihenSelected = filters.paymentTypes.includes("rent")
 
                 return (
                   <>
               <button
                 type="button"
-                onClick={() => onFiltersChange({ ...filters, paymentTypes: ["flatrate"] })}
+                onClick={() => onFiltersChange({ ...filters, paymentTypes: ["free"] })}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all border",
                   isFlatrateSelected
@@ -144,7 +143,7 @@ export function FilterPanel({ filters, onFiltersChange }: FilterPanelProps) {
               </button>
               <button
                 type="button"
-                onClick={() => onFiltersChange({ ...filters, paymentTypes: AUSLEIHEN_PAYMENT_TYPES })}
+                onClick={() => onFiltersChange({ ...filters, paymentTypes: ["rent"] })}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all border",
                   isAusleihenSelected

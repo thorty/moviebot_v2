@@ -24,6 +24,8 @@ class FreeProvider(Enum):
     #MAGENTA_TV = "MagentaTV"
     MAGENTA_TV_PLUS = "Magenta TV+"    
     
+    
+    
 class PaymentTypes(Enum):
     FREE = "free"
     RENT = "rent"

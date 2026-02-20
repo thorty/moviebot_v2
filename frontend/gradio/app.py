@@ -62,11 +62,11 @@ def chat_with_bot(message, history, content_type, selected_providers, payment_mo
     
     # Determine payment types based on selected payment model
     payment_model_map = {
-        "Ausleihen (Flatrate + Leihen)": ["flatrate", "rent"],
-        "Nur Flatrate": ["flatrate"],
+        "Ausleihen (Flatrate + Leihen)": ["rent"],
+        "Nur Flatrate": ["free"],
         "Nur kostenlos": ["free"],
     }
-    payment_types = payment_model_map.get(payment_model, ["flatrate", "rent"])
+    payment_types = payment_model_map.get(payment_model, ["free", "rent"])
     
     # Retrieve previous state for persistence
     previous_result = last_result_store.get(thread_id, {})

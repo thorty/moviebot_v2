@@ -10,21 +10,11 @@ import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
-  providers: ["netflix", "disney-plus", "amazon", "wow", "paramount-plus", "apple-tv", "magenta-tv"],
-  paymentTypes: ["flatrate", "rent"],
+  providers: ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
+  paymentTypes: ["free", "rent"],
 }
 
-const PROVIDER_MAP: Record<string, string> = {
-  netflix: "Netflix",
-  "disney-plus": "Disney Plus",
-  amazon: "Amazon Prime Video",
-  wow: "WOW",
-  "paramount-plus": "Paramount Plus",
-  "apple-tv": "Apple TV Plus",
-  "magenta-tv": "MagentaTV",
-}
-
-const DEFAULT_PAYMENT_TYPES = ["flatrate", "rent"]
+const DEFAULT_PAYMENT_TYPES = ["free", "rent"]
 
 const LOADING_HINTS = [
   "suche nach den besten Treffern ",
@@ -93,9 +83,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     const requestProviders =
       filters.source === "mediathek"
         ? ["Mediatheken"]
-        : (filters.providers.length > 0 ? filters.providers : DEFAULT_FILTERS.providers).map(
-            (provider) => PROVIDER_MAP[provider] || provider
-          )
+        : (filters.providers.length > 0 ? filters.providers : DEFAULT_FILTERS.providers)
     const requestPaymentTypes =
       filters.source === "mediathek"
         ? ["free"]
