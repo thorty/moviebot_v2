@@ -26,6 +26,13 @@ body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
 }
 
 @keyframes pulse-dot {
