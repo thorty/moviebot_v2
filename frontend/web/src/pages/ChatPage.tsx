@@ -8,6 +8,19 @@ import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
 import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
+// Fallback UUID generator für Browser ohne crypto.randomUUID() (z.B. Firefox über HTTP)
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback: v4 UUID mit Math.random()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
   providers: ["netflix", "disney-plus", "amazon", "wow", "paramount-plus", "apple-tv", "magenta-tv"],
@@ -81,7 +94,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
 
   const appendConversation = useCallback(async (userText: string) => {
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "user",
       content: userText,
     }
@@ -111,7 +124,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       })
 
       const botMessage: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: "assistant",
         content: response.reply || "Ich habe aktuell keine Antwort erhalten.",
       }
@@ -119,7 +132,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
       const botMessage: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: "assistant",
         content: `Fehler beim Senden an das Backend: ${errorMessage}`,
       }
@@ -164,7 +177,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unbekannter Fehler"
       const botMessage: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: "assistant",
         content: `Fehler beim Starten eines neuen Chats: ${errorMessage}`,
       }
