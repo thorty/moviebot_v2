@@ -448,12 +448,29 @@ def create_interest_analyst(model):
                 f"after_prune={len(llm_messages)} removed={removed_count}"
             )
         response = model.invoke([sys_msg] + llm_messages)
-        response_text = response.content.lower() if isinstance(response.content, str) else str(response.content).lower()
-        is_finished = "#finished#" in response_text
+        original_content = response.content if isinstance(response.content, str) else str(response.content)
+        response_text = original_content.lower()
+        normalized_response = original_content.strip()
+        has_finished_tag = "#finished#" in response_text
+        ends_with_question_mark = normalized_response.endswith("?")
+        is_finished = has_finished_tag or (bool(normalized_response) and not ends_with_question_mark)
+
+        finish_reason = "question_pending"
+        if has_finished_tag:
+            finish_reason = "finished_tag"
+        elif bool(normalized_response) and not ends_with_question_mark:
+            finish_reason = "no_trailing_question_mark"
+
+        print(
+            f"[INTEREST_ANALYST] finish_check: "
+            f"has_finished_tag={has_finished_tag}, "
+            f"ends_with_question_mark={ends_with_question_mark}, "
+            f"is_finished={is_finished}, "
+            f"reason={finish_reason}"
+        )
         
         if is_finished:
             # Interest Analyst ist bereit - remove #FINISHED# from content before sending
-            original_content = response.content if isinstance(response.content, str) else str(response.content)
             cleaned_response_text = original_content.replace("#FINISHED#", "").replace("#finished#", "").strip()
             
             # Create clean message without #FINISHED# tag
