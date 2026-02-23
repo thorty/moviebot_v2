@@ -7,7 +7,7 @@ import { ChatMessages, type ChatMessage } from "@/components/chat/ChatMessages"
 import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
 import { ApiHttpError } from "@/lib/chatApi"
-import { sendChatMessage, startNewChatContext } from "@/lib/chatApi"
+import { getUserFilters, saveUserFilters, sendChatMessage, startNewChatContext } from "@/lib/chatApi"
 
 // Fallback UUID generator für Browser ohne crypto.randomUUID() (z.B. Firefox über HTTP)
 function generateUUID(): string {
@@ -27,6 +27,8 @@ const DEFAULT_FILTERS: Filters = {
   providers: ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
   paymentTypes: ["free", "rent"],
 }
+
+const FILTERS_STORAGE_KEY = "moviebot.userFilters"
 
 const DEFAULT_PAYMENT_TYPES = ["free", "rent"]
 
@@ -57,6 +59,72 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const hasMessages = messages.length > 0
+
+  const buildRequestFilters = useCallback(
+    (selectedFilters: Filters): { userstreamingproviders: string[]; paymenttypes: string[] } => {
+      const requestProviders =
+        selectedFilters.source === "mediathek"
+          ? ["Mediatheken"]
+          : selectedFilters.providers.length > 0
+            ? selectedFilters.providers
+            : DEFAULT_FILTERS.providers
+
+      const requestPaymentTypes =
+        selectedFilters.source === "mediathek"
+          ? ["free"]
+          : selectedFilters.paymentTypes.length > 0
+            ? selectedFilters.paymentTypes
+            : DEFAULT_PAYMENT_TYPES
+
+      return {
+        userstreamingproviders: requestProviders,
+        paymenttypes: requestPaymentTypes,
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    try {
+      const cachedRaw = window.localStorage.getItem(FILTERS_STORAGE_KEY)
+      if (cachedRaw) {
+        const cachedFilters = JSON.parse(cachedRaw) as Filters
+        if (cachedFilters?.source) {
+          setFilters(cachedFilters)
+        }
+      }
+    } catch {
+      // ignore invalid local cache
+    }
+
+    let isCancelled = false
+
+    const loadFilters = async () => {
+      try {
+        const stored = await getUserFilters()
+        if (isCancelled) {
+          return
+        }
+
+        const nextFilters: Filters = {
+          source: stored.source,
+          providers: stored.providers,
+          paymentTypes: stored.paymenttypes as Filters["paymentTypes"],
+        }
+
+        setFilters(nextFilters)
+        window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(nextFilters))
+      } catch {
+        // keep local/default filters if backend filters are unavailable
+      }
+    }
+
+    void loadFilters()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!isLoading) {
@@ -96,22 +164,27 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     setLoadingHint(LOADING_HINTS[Math.floor(Math.random() * LOADING_HINTS.length)])
     setIsLoading(true)
 
-    const requestProviders =
-      filters.source === "mediathek"
-        ? ["Mediatheken"]
-        : (filters.providers.length > 0 ? filters.providers : DEFAULT_FILTERS.providers)
-    const requestPaymentTypes =
-      filters.source === "mediathek"
-        ? ["free"]
-        : filters.paymentTypes.length > 0
-          ? filters.paymentTypes
-          : DEFAULT_PAYMENT_TYPES
+    const requestFilters = buildRequestFilters(filters)
+    const persistedFilters: Filters = {
+      source: filters.source,
+      providers: requestFilters.userstreamingproviders,
+      paymentTypes: requestFilters.paymenttypes as Filters["paymentTypes"],
+    }
+
+    window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(persistedFilters))
+    void saveUserFilters({
+      source: persistedFilters.source,
+      providers: persistedFilters.providers,
+      paymenttypes: persistedFilters.paymentTypes,
+    }).catch(() => {
+      // local cache remains fallback if backend save fails
+    })
 
     try {
       const response = await sendChatMessage({
         message: userText,
-        userstreamingproviders: requestProviders,
-        paymenttypes: requestPaymentTypes,
+        userstreamingproviders: requestFilters.userstreamingproviders,
+        paymenttypes: requestFilters.paymenttypes,
       })
 
       const botMessage: ChatMessage = {
@@ -139,7 +212,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       }
     }
-  }, [filters])
+  }, [buildRequestFilters, filters])
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim()

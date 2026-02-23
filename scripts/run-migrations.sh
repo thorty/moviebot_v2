@@ -4,7 +4,7 @@ set -eu
 DB_HOST="${DB_HOST:-supabase-db}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-postgres}"
-DB_PASSWORD="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+DB_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 DB_USER="${DB_USER:-postgres}"
 MIGRATION_DIR="/workspace/supabase/migrations"
 

@@ -21,6 +21,20 @@ export type NewChatResponsePayload = {
   conversation_id: string
 }
 
+export type UserFilterPreferencesPayload = {
+  source: "streaming" | "mediathek"
+  providers: string[]
+  paymenttypes: string[]
+}
+
+export type UserFilterPreferencesResponse = {
+  status: string
+  user_id: string
+  source: "streaming" | "mediathek"
+  providers: string[]
+  paymenttypes: string[]
+}
+
 export class ApiHttpError extends Error {
   status: number
 
@@ -94,4 +108,43 @@ export async function startNewChatContext(): Promise<NewChatResponsePayload> {
   }
 
   return (await response.json()) as NewChatResponsePayload
+}
+
+export async function getUserFilters(): Promise<UserFilterPreferencesResponse> {
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(`${backendApiUrl}/api/v1/user/filters`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw await buildHttpError(response)
+  }
+
+  return (await response.json()) as UserFilterPreferencesResponse
+}
+
+export async function saveUserFilters(
+  payload: UserFilterPreferencesPayload
+): Promise<UserFilterPreferencesResponse> {
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(`${backendApiUrl}/api/v1/user/filters`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw await buildHttpError(response)
+  }
+
+  return (await response.json()) as UserFilterPreferencesResponse
 }

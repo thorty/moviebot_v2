@@ -11,6 +11,10 @@ from pydantic import BaseModel
 
 from backend.persistence.conversations import get_or_create_active_conversation, start_new_active_conversation
 from backend.persistence.message_logs import append_message_log
+from backend.persistence.user_filter_preferences import (
+    get_user_filter_preferences,
+    upsert_user_filter_preferences,
+)
 from backend.utils.helper import verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
 
@@ -47,6 +51,20 @@ class NewChatResponse(BaseModel):
     status: str
     user_id: str
     conversation_id: str
+
+
+class UserFilterPreferencesPayload(BaseModel):
+    source: str
+    providers: list[str]
+    paymenttypes: list[str]
+
+
+class UserFilterPreferencesResponse(BaseModel):
+    status: str
+    user_id: str
+    source: str
+    providers: list[str]
+    paymenttypes: list[str]
 
 
 @app.on_event("startup")
@@ -146,6 +164,40 @@ def health() -> dict[str, str]:
     }
 
 
+def _normalize_filter_payload(payload: UserFilterPreferencesPayload) -> tuple[str, list[str], list[str]]:
+    source = payload.source.strip().lower()
+    if source not in {"streaming", "mediathek"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid filter source",
+        )
+
+    providers = [provider.strip() for provider in payload.providers if provider and provider.strip()]
+    paymenttypes = [payment.strip().lower() for payment in payload.paymenttypes if payment and payment.strip()]
+
+    if source == "mediathek":
+        return source, ["Mediatheken"], ["free"]
+
+    if not providers:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one provider is required for streaming source",
+        )
+
+    normalized_paymenttypes: list[str] = []
+    for payment in paymenttypes:
+        if payment in {"free", "flatrate"}:
+            normalized_paymenttypes.append("free")
+        elif payment == "rent":
+            normalized_paymenttypes.append("rent")
+
+    normalized_paymenttypes = list(dict.fromkeys(normalized_paymenttypes))
+    if not normalized_paymenttypes:
+        normalized_paymenttypes = ["free", "rent"]
+
+    return source, providers, normalized_paymenttypes
+
+
 @app.post("/api/v1/chat")
 def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)) -> dict[str, str]:
     user_id = str(user_claims.get("sub", ""))
@@ -179,6 +231,56 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
         "conversation_id": conversation_id,
         "reply": reply,
     }
+
+
+@app.get("/api/v1/user/filters", response_model=UserFilterPreferencesResponse)
+def get_user_filters(user_claims: dict = Depends(require_user_context)) -> UserFilterPreferencesResponse:
+    user_id = str(user_claims.get("sub", ""))
+    access_token = str(user_claims.get("_access_token", ""))
+
+    preferences = get_user_filter_preferences(user_id=user_id, access_token=access_token)
+    if preferences is None:
+        return UserFilterPreferencesResponse(
+            status="ok",
+            user_id=user_id,
+            source="streaming",
+            providers=["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
+            paymenttypes=["free", "rent"],
+        )
+
+    return UserFilterPreferencesResponse(
+        status="ok",
+        user_id=user_id,
+        source=str(preferences.get("source", "streaming")),
+        providers=list(preferences.get("providers", []) or []),
+        paymenttypes=list(preferences.get("payment_types", []) or []),
+    )
+
+
+@app.put("/api/v1/user/filters", response_model=UserFilterPreferencesResponse)
+def save_user_filters(
+    payload: UserFilterPreferencesPayload,
+    user_claims: dict = Depends(require_user_context),
+) -> UserFilterPreferencesResponse:
+    user_id = str(user_claims.get("sub", ""))
+    access_token = str(user_claims.get("_access_token", ""))
+
+    source, providers, paymenttypes = _normalize_filter_payload(payload)
+    row = upsert_user_filter_preferences(
+        user_id=user_id,
+        access_token=access_token,
+        source=source,
+        providers=providers,
+        payment_types=paymenttypes,
+    )
+
+    return UserFilterPreferencesResponse(
+        status="ok",
+        user_id=user_id,
+        source=str(row.get("source", source)),
+        providers=list(row.get("providers", providers) or providers),
+        paymenttypes=list(row.get("payment_types", paymenttypes) or paymenttypes),
+    )
 
 
 @app.post("/api/v1/chat/new", response_model=NewChatResponse)

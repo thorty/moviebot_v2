@@ -131,3 +131,6 @@ The `frontend-web` service intentionally stays active as a placeholder in Task 1
 Optional full reset (including volumes/data):
 - `docker compose down -v`
 - `docker compose up -d`
+
+For Updates of Supabase Setup / Database
+- `docker compose run --rm supabase-migrations`
