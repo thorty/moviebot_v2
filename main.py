@@ -15,7 +15,7 @@ from backend.persistence.user_filter_preferences import (
     get_user_filter_preferences,
     upsert_user_filter_preferences,
 )
-from backend.utils.helper import verify_and_decode_supabase_jwt
+from backend.utils.helper import choose_streaming_providers, verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
 
 
@@ -135,12 +135,24 @@ def reset_graph_thread_state(thread_id: str) -> None:
 
 def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -> str:
     app_graph = get_graph_app()
+
+    normalized_paymenttypes = [payment.strip().lower() for payment in payload.paymenttypes if payment and payment.strip()]
+    normalized_paymenttypes = ["free" if payment == "flatrate" else payment for payment in normalized_paymenttypes]
+    normalized_paymenttypes = list(dict.fromkeys(normalized_paymenttypes))
+    if not normalized_paymenttypes:
+        normalized_paymenttypes = ["free", "rent"]
+
+    normalized_user_providers = [provider.strip() for provider in payload.userstreamingproviders if provider and provider.strip()]
+    effective_providers = choose_streaming_providers(normalized_user_providers, normalized_paymenttypes)
+    if not effective_providers:
+        effective_providers = normalized_user_providers
+
     graph_input = {
         "messages": [HumanMessage(content=payload.message)],
         "user_id": user_id,
         "conversation_id": conversation_id,
-        "userstreamingproviders": payload.userstreamingproviders,
-        "paymenttypes": payload.paymenttypes,
+        "userstreamingproviders": effective_providers,
+        "paymenttypes": normalized_paymenttypes,
     }
     config = {
         "configurable": {"thread_id": payload.thread_id or f"conversation:{conversation_id}"},
