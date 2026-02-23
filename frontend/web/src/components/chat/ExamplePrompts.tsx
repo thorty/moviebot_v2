@@ -22,7 +22,7 @@ export function ExamplePrompts({ onSelect }: ExamplePromptsProps) {
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Was möchtest du schauen?</h1>
         <p className="max-w-md text-sm text-muted-foreground leading-relaxed">
-          Beschreibe mir, wonach dir heute ist, und ich finde die passende Empfehlung.
+          Beschreibe mir, wonach dir heute ist, und ich empfehle dir Filme und Serien, die zu deinen Vorlieben passen. Je mehr Details du mir gibst, desto besser kann ich suchen!
         </p>
       </div>
 
@@ -40,6 +40,11 @@ export function ExamplePrompts({ onSelect }: ExamplePromptsProps) {
             </button>
           )
         })}
+      </div>
+      <div>
+        <p className="max-w-md text-sm text-muted-foreground leading-relaxed">
+        Du kannst deine Suche auch über den 'Filtern'-Button anpassen!
+        </p>
       </div>
     </div>
   )

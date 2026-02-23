@@ -265,30 +265,15 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     <div className="flex h-dvh flex-col" style={{ backgroundColor: "hsl(var(--background))" }}>
       <header className="flex items-center justify-between border-b px-4 py-3 md:px-6" style={{ borderColor: "hsl(var(--border))" }}>
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-            <Clapperboard className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <Clapperboard className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-foreground">Moviebot</h1>
+              <p className="hidden text-xs text-muted-foreground sm:block">Dein Film- & Serienberater</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-foreground">Moviebot</h1>
-            <p className="hidden text-xs text-muted-foreground sm:block">Dein Film- & Serienberater</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {userEmail && (
-            <span className="hidden max-w-[220px] truncate rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground md:block">
-              {userEmail}
-            </span>
-          )}
-
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/80 hover:text-foreground"
-            >
-              Logout
-            </button>
-          )}
 
           <button
             onClick={() => setFiltersOpen((current) => !current)}
@@ -319,6 +304,23 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
             )}
             {filtersOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {userEmail && (
+            <span className="hidden max-w-[220px] truncate rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground md:block">
+              {userEmail}
+            </span>
+          )}
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/80 hover:text-foreground"
+            >
+              Logout
+            </button>
+          )}
 
           {hasMessages && (
             <button
@@ -353,7 +355,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         <div className="mx-auto max-w-3xl">
           <ChatInput value={input} onChange={setInput} onSubmit={handleSend} isLoading={isLoading} />
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Moviebot kann Fehler machen. Verfügbarkeit auf Plattformen kann variieren.
+            Moviebot kann Fehler machen. Verfügbarkeit auf Plattformen kann variieren. (Powered by tmdb)
           </p>          
         </div>
       </div>
