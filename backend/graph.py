@@ -318,12 +318,10 @@ def fallback_response(state: AgentState):
     """
     #log_state("fallback_response", dict(state), "ENTRY")
     
-    userstreamingproviders = state.get("userstreamingproviders", [])
-    
-    fallback_message = f"""
+    fallback_message = """
     Oh nein, gerade habe ich leider nichts Passendes gefunden. 😨
 
-    Lass uns gemeinsam nochmal suchen – vielleicht mit einer etwas breiteren Anfrage oder auf noch mehr Anbietern (z. B. Netflix, Disney+, Prime, Sky und Co.).
+    Lass uns gemeinsam nochmal suchen – vielleicht mit einer etwas breiteren Anfrage oder mit angepassten Plattform-Filtern.
 
     Du kannst zum Beispiel:
     • Mehr Plattformen freigeben, damit ich noch mehr für dich durchstöbern kann

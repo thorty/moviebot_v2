@@ -74,6 +74,13 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             ---
             
             ### CRITICAL Availability & Display Rules ###
+
+            **Provider Source of Truth (HARD RULE):**
+            - The ONLY valid provider names are the ones returned by `filter_streaming_providers` for each title.
+            - NEVER invent, guess, or add providers from memory.
+            - NEVER mention any provider outside this allowed set: {', '.join(userstreamingproviders)}
+            - If a title has no matching provider in the tool result, skip the title.
+            - If uncertain, do not output the title.
             
             **Flatrate Preference Rule:**
             - **PRIORITIZE titles available in Flatrate (🟢) over rental/purchase options**
@@ -106,7 +113,8 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             - If web search fails: use knowledge-based recommendations + brief note about limited search
             - Quality over quantity: 4 perfect available recommendations > 10 unavailable ones
             - Always provide reasoning why each title fits the user's request
-            - dont mention that you are sorry for limited recommendations or limitations due to availability. instaed focus on the positive aspects of the recommendations.
+            - Before final output, run an internal compliance check and remove any line that names a provider not in: {', '.join(userstreamingproviders)}
+            - do not mention that you are sorry for limited recommendations or limitations due to availability. instead focus on the positive aspects of the recommendations.
             
             ### User's Request Summary ###
             {analystresult}
@@ -126,7 +134,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         - Generate ONLY 10-15 VERY WELL-KNOWN titles from your knowledge that are LIKELY available on {userstreamingprovider}
         - Focus ONLY on major blockbusters and popular series that streaming services typically have
         - **KRITISCH: Verwende dein Wissen nur minimal - die Verfügbarkeit ändert sich ständig!**
-        - Examples of likely titles: Popular Netflix Originals (if Netflix), Disney franchises (if Disney+), etc.
+        - Examples of likely titles: Major franchise titles and widely known catalog hits on the selected provider.
 
         **Step 2: INTENSIVE Provider-Specific Web Research (PRIMARY SOURCE)**
         - **THIS IS YOUR MAIN SOURCE - Web research is more reliable than your knowledge!**
@@ -184,6 +192,11 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         ### CRITICAL Availability & Display Rules ###
 
+        **Provider Source of Truth (HARD RULE):**
+        - The ONLY valid provider is `{userstreamingprovider}` if and only if it appears in `filter_streaming_providers` results.
+        - NEVER name any other provider.
+        - If tool results do not contain `{userstreamingprovider}` for a title, skip the title.
+
         - **PRIORITIZE titles available in Flatrate (🟢) over rental/purchase options**
         - When choosing between titles, always prefer those with flatrate availability
         - If user asks for "kostenlose" or "free" alternatives, ONLY show flatrate titles
@@ -200,6 +213,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         - If web search fails: use knowledge-based recommendations + brief note about limited search
         - Quality over quantity: 4 perfect available recommendations > 10 unavailable ones
         - Always provide reasoning why each title fits the user's request
+        - Before final output, run an internal compliance check: if a provider line contains any name other than `{userstreamingprovider}`, delete that title block.
         - Don't mention limitations or apologize for limited recommendations; focus on the positive aspects.
 
         ### User's Request Summary ###
@@ -319,6 +333,7 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
         - If web search fails completely: Send "#NO_RESULTS#" (no fallback to knowledge)
         - Quality over quantity: 4 perfect matches > 8 questionable ones
         - Always explain why each title fits the user's request based on your research
+        - Before final output, run an internal compliance check and remove any provider mention that is not ARD Mediathek or ZDF Mediathek.
         - Don't mention limitations; focus on the quality and diversity of public broadcasting
 
         ### User's Request Summary ###
