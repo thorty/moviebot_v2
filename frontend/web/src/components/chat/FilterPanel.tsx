@@ -9,7 +9,7 @@ const STREAMING_PROVIDERS = [
   { id: "WOW", name: "WOW", color: "#6B21A8" },
   { id: "Paramount Plus", name: "Paramount Plus", color: "#0064FF" },
   { id: "Apple TV", name: "Apple TV", color: "#A3A3A3" },
-  { id: "MagentaTV", name: "MagentaTV", color: "#E20074" },
+  { id: "Magenta TV", name: "Magenta TV", color: "#E20074" },
 ] as const
 
 export type FilterSource = "streaming" | "mediathek"

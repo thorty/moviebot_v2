@@ -244,7 +244,7 @@ def get_user_filters(user_claims: dict = Depends(require_user_context)) -> UserF
             status="ok",
             user_id=user_id,
             source="streaming",
-            providers=["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
+            providers=["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "Magenta TV"],
             paymenttypes=["free", "rent"],
         )
 

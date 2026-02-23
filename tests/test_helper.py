@@ -4,6 +4,12 @@ Tests the filter_streaming_providers function
 """
 
 import pytest
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]  # adjust depth
+sys.path.insert(0, str(ROOT))
+
 from backend.utils.helper import choose_streaming_providers
 from backend.utils.tmdb.common import FreeProvider
 
@@ -105,3 +111,16 @@ class TestFilterStreamingProvidersHelper:
         result_both = choose_streaming_providers(user_providers, ["free", "rent"])
         assert "Amazon Video" in result_both
         assert "Apple TV" in result_both   
+    def test_magenta_free_vs_rent(self):
+        """Test that payment_types changes which enum is used"""
+        user_providers = ["Magenta TV"]
+        
+        # With free only - uses FreeProvider (no Amazon Video, no Apple TV)
+        result_free = choose_streaming_providers(user_providers, ["free"])
+        assert "Magenta TV+" in result_free  # Fuzzy match to Magenta TV+ in FreeProvider        
+        
+        # With rent - uses Provider (has both Amazon Video and Apple TV)
+        result_rent = choose_streaming_providers(user_providers, ["rent"])
+        assert "MagentaTV" in result_rent  # Exact match in Provider
+        assert "Magenta TV+" in result_rent  # Exact match in Provider
+        

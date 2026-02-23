@@ -36,6 +36,10 @@ def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: 
 
     user_norm = normalize(user_provider)
     ref_norm = normalize(reference_provider)
+
+    if user_norm == ref_norm:
+      return True
+
     user_sig = significant_tokens(user_provider)
     ref_sig = significant_tokens(reference_provider)
 
