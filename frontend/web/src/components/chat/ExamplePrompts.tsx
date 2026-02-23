@@ -1,12 +1,12 @@
 import { Clapperboard, Laugh, Mountain, Music, Rocket, Search, Swords } from "lucide-react"
 
 const EXAMPLE_PROMPTS = [
-  { icon: Laugh, text: "Ein lustiger Film für den Abend mit Freunden" },
-  { icon: Rocket, text: "Die besten Sci-Fi Serien der letzten 5 Jahre" },
-  { icon: Search, text: "Eine Krimiserie wie \"Death in Paradise\"" },
-  { icon: Swords, text: "Spannende Abenteuerfilme für die ganze Familie mit Piraten" },
-  { icon: Mountain, text: "Eine Dokumentation über das Extrembergsteigen" },
-  { icon: Music, text: "Eine Dokumentation über Rockmusik" },
+  { icon: Laugh, text: "Ein lustiger Film für den Abend mit Freunden", color: "#39ff14" },
+  { icon: Rocket, text: "Die besten Sci-Fi Serien der letzten 5 Jahre", color: "#00f5ff" },
+  { icon: Search, text: "Eine Krimiserie wie \"Death in Paradise\"", color: "#ff3131" },
+  { icon: Swords, text: "Spannende Abenteuerfilme für die ganze Familie mit Piraten", color: "#ff00ff" },
+  { icon: Mountain, text: "Eine Dokumentation über das Extrembergsteigen", color: "#b026ff" },
+  { icon: Music, text: "Eine Dokumentation über Rockmusik", color: "#fff700" },
 ]
 
 interface ExamplePromptsProps {
@@ -35,7 +35,7 @@ export function ExamplePrompts({ onSelect }: ExamplePromptsProps) {
               onClick={() => onSelect(prompt.text)}
               className="group flex items-center gap-3 rounded-xl border border-border bg-secondary/50 px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:border-primary/30 hover:bg-secondary hover:text-foreground"
             >
-              <Icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Icon className="h-4 w-4 shrink-0 transition-colors" color={prompt.color} />
               <span className="leading-snug">{prompt.text}</span>
             </button>
           )
@@ -43,7 +43,7 @@ export function ExamplePrompts({ onSelect }: ExamplePromptsProps) {
       </div>
       <div>
         <p className="max-w-md text-sm text-muted-foreground leading-relaxed">
-        Du kannst deine Suche auch über den 'Filtern'-Button anpassen!
+        Du kannst deine Suche auch über den 'Filtern' anpassen!
         </p>
       </div>
     </div>
