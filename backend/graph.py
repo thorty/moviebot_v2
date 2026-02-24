@@ -50,32 +50,32 @@ def initialize_research_model():
     Called during graph creation to avoid repeated initialization.
     """
 
-#    model_name = "claude-3-7-sonnet"
-#    research_model = ChatOpenAI(
-#        openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
-#        openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
-#        model=model_name,
-#        temperature=0.0,          # 0 für Claude: Deterministisch bei Tools (Docs empfehlen)[web:97][web:98]
-#        max_completion_tokens=8192,          # Hoch für Tavily-Results + Ranking-Logik
-#        top_p=0.95,               # Etwas flexibler für kreative Queries
-#        frequency_penalty=0.1,    # Vermeidet Loop-Wiederholungen
-#        streaming=False
-#    )
-    
-    model_name = "gemini-2.5-pro"  # Oder "gemini-2.5-pro-exp" falls verfügbar
+    model_name = "claude-3-7-sonnet"
     research_model = ChatOpenAI(
-        openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
-        openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
-        model=model_name,
-        temperature=0.1,              # Low: Präzise Tool-Queries (0.0–0.2 ideal)[web:105][web:149]
-        max_completion_tokens=4096,   # Output-Limit (Gemini: bis 8k+)[web:144]
-        top_p=0.95,                   # Nucleus-Sampling für Fokus (0.9–1.0)[web:146]
-        #top_k=40,                     # Top-40 Tokens (reduziert Randomness)[web:144]
-        frequency_penalty=0.1,        # Weniger Wiederholungen in Loops
-        presence_penalty=0.0,         # Neutral für Research
-        max_retries=2,                # Retry bei Fehlern
-        streaming=False
-    )        
+       openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
+       openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
+       model=model_name,
+       temperature=0.0,          # 0 für Claude: Deterministisch bei Tools (Docs empfehlen)[web:97][web:98]
+       max_completion_tokens=10000,          # Hoch für Tavily-Results + Ranking-Logik
+       top_p=0.95,               # Etwas flexibler für kreative Queries
+       frequency_penalty=0.1,    # Vermeidet Loop-Wiederholungen
+       streaming=False
+   )
+    
+    # model_name = "gemini-2.5-pro"  # Oder "gemini-2.5-pro-exp" falls verfügbar
+    # research_model = ChatOpenAI(
+    #     openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
+    #     openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
+    #     model=model_name,
+    #     temperature=0.1,              # Low: Präzise Tool-Queries (0.0–0.2 ideal)[web:105][web:149]
+    #     max_completion_tokens=4096,   # Output-Limit (Gemini: bis 8k+)[web:144]
+    #     top_p=0.95,                   # Nucleus-Sampling für Fokus (0.9–1.0)[web:146]
+    #     #top_k=40,                     # Top-40 Tokens (reduziert Randomness)[web:144]
+    #     frequency_penalty=0.1,        # Weniger Wiederholungen in Loops
+    #     presence_penalty=0.0,         # Neutral für Research
+    #     max_retries=2,                # Retry bei Fehlern
+    #     streaming=False
+    # )        
         
     
 
