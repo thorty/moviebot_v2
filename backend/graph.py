@@ -8,47 +8,88 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
 from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt, get_content_researcher_prompt_mediatheken, get_scope_guard_prompt
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_openai import ChatOpenAI
 from backend.tools import get_all_tools
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from backend.utils.tmdb.common import Provider, PaymentTypes
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def initialize_gpt4omini_model():
+def initialize_analyst_model():
     """
-    Initialize Azure OpenAI model once.
+    Initialize model once.
+    Called during graph creation to avoid repeated initialization.
+    """
+    model_name = "gemini-2.5-flash"
+    analystmodel = ChatOpenAI(
+        openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
+        openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
+        model=model_name,
+        temperature=0.3,     
+        max_completion_tokens=2048,          # Genug für Analyse + Folgefragen
+        top_p=0.9,               # Fokus
+        frequency_penalty=0.05,   # Wenig Wiederholungen
+        streaming=False        
+        )
+    
+
+    # Initialize our LLM
+    #gpt4omini_model = ChatOpenAI(   
+    #    api_key= os.getenv("OPENAI_API_KEY"),
+    #    temperature=0.3,
+    #    model="gpt-4o-mini"
+        # todo maxtoken
+    #)
+    print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
+    return analystmodel    
+
+def initialize_research_model():
+    """
+    Initialize model once.
     Called during graph creation to avoid repeated initialization.
     """
 
-    # Initialize our LLM
-    gpt4omini_model = ChatOpenAI(   
-        api_key= os.getenv("OPENAI_API_KEY"),
-        temperature=0.3,
-        model="gpt-4o-mini"
-        # todo maxtoken
-    )
-    print(f"[MODEL_INIT] ✓ Model initialized: gpt4o-mini")
-    return gpt4omini_model    
+#    model_name = "claude-3-7-sonnet"
+#    research_model = ChatOpenAI(
+#        openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
+#        openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
+#        model=model_name,
+#        temperature=0.0,          # 0 für Claude: Deterministisch bei Tools (Docs empfehlen)[web:97][web:98]
+#        max_completion_tokens=8192,          # Hoch für Tavily-Results + Ranking-Logik
+#        top_p=0.95,               # Etwas flexibler für kreative Queries
+#        frequency_penalty=0.1,    # Vermeidet Loop-Wiederholungen
+#        streaming=False
+#    )
+    
+    model_name = "gemini-2.5-pro"  # Oder "gemini-2.5-pro-exp" falls verfügbar
+    research_model = ChatOpenAI(
+        openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
+        openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
+        model=model_name,
+        temperature=0.1,              # Low: Präzise Tool-Queries (0.0–0.2 ideal)[web:105][web:149]
+        max_completion_tokens=4096,   # Output-Limit (Gemini: bis 8k+)[web:144]
+        top_p=0.95,                   # Nucleus-Sampling für Fokus (0.9–1.0)[web:146]
+        #top_k=40,                     # Top-40 Tokens (reduziert Randomness)[web:144]
+        frequency_penalty=0.1,        # Weniger Wiederholungen in Loops
+        presence_penalty=0.0,         # Neutral für Research
+        max_retries=2,                # Retry bei Fehlern
+        streaming=False
+    )        
+        
+    
 
-def initialize_gpt41_model():
-    """
-    Initialize Azure OpenAI model once.
-    Called during graph creation to avoid repeated initialization.
-    """
-
     # Initialize our LLM
-    gpt41_model = ChatOpenAI(   
-        api_key= os.getenv("OPENAI_API_KEY"),
-        temperature=0.3,
-        model="gpt-4.1",
-        max_tokens=10000
+    #gpt41_model = ChatOpenAI(   
+    #    api_key= os.getenv("OPENAI_API_KEY"),
+    #    temperature=0.3,
+    #    model="gpt-4.1",
+    #    max_tokens=10000
+    
         # todo maxtoken
-    )
-    print(f"[MODEL_INIT] ✓ Model initialized: gpt-4.1")
-    return gpt41_model    
+    #)
+    print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
+    return research_model    
     
 
 def log_state(node_name: str, state: dict, position: str = "ENTRY"):
@@ -659,17 +700,17 @@ def create_graph():
     dotenv.load_dotenv(dotenv_path=".env", override=True)
     
     # Initialize model ONCE for the entire graph
-    model_gpt41 = initialize_gpt41_model()
-    model_gpt4omini = initialize_gpt4omini_model()
+    model_analyst = initialize_analyst_model()
+    model_researcher = initialize_research_model()
     
     workflow = StateGraph(AgentState)
 
     # Create nodes with model closure (no re-initialization)
-    workflow.add_node("scope_guard", create_scope_guard(model_gpt4omini))
+    workflow.add_node("scope_guard", create_scope_guard(model_analyst))
     workflow.add_node("out_of_scope_response", out_of_scope_response)
-    workflow.add_node("interest_analyst", create_interest_analyst(model_gpt4omini))
+    workflow.add_node("interest_analyst", create_interest_analyst(model_analyst))
     workflow.add_node("analyst_output_validator", analyst_output_validator)
-    workflow.add_node("content_researcher", create_content_researcher(model_gpt41))
+    workflow.add_node("content_researcher", create_content_researcher(model_researcher))
     workflow.add_node("tools", tool_node_with_state_tracking)
     workflow.add_node("result_validator", result_validator)
     workflow.add_node("fallback_response", fallback_response)

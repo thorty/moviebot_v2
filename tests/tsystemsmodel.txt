@@ -1,0 +1,36 @@
+mb_langgraph_v3 % python ./tests/tesystemsapi.py
+OpenAI version:  2.6.1
+==========Available models==========
+Llama-3.3-70B-Instruct
+Mistral-Large-2411
+Mistral-Small-24B-Instruct-2501
+Qwen2.5-Coder-32B-Instruct-FP8
+Qwen3-30B-A3B-FP8
+Qwen3-Next-80B-A3B-Instruct-FP8
+Qwen3-VL-30B-A3B-Instruct-FP8
+Teuken-7B-Instruct-v04
+claude-3-7-sonnet
+claude-sonnet-4
+gemini-2.5-flash
+gemini-2.5-pro
+gpt-4.1
+gpt-4.1-mini
+gpt-4.1-nano
+gpt-4o
+gpt-4o-mini
+gpt-5
+gpt-5-mini
+gpt-5-nano
+gpt-image-1
+gpt-oss-120b
+jina-embeddings-v2-base-code
+jina-embeddings-v2-base-de
+o1
+o1-mini
+o3
+o3-mini
+o4-mini
+text-embedding-ada-002
+text-embedding-bge-m3
+tsi-embedding-colqwen2-2b-v1
+(mb_langgraph_v3) A743293@T001c6195a mb_langgraph_v3 % 
