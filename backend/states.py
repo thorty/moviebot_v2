@@ -46,7 +46,7 @@ class AgentState(TypedDict):
     # Validation and results tracking
     last_filter_results: dict  # Results from filter_streaming_providers tool
     validation_status: str  # "success" | "max_retries" | "pending"
-    found_titles: list[str]  # Blacklist: All titles already found/used (prevents duplicates)
+    found_titles: list[str]  # Blacklist: Only titles already presented to the user (prevents duplicate recommendations)
 
     # Scope guard routing (movie/series domain check)
     scope_status: str  # "in_scope" | "out_of_scope" | "unclear"

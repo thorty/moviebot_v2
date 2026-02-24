@@ -165,6 +165,33 @@ def _remove_prior_turn_tool_messages(messages: list[Any]) -> list[Any]:
     return pruned_messages
 
 
+def _extract_presented_titles_from_text(text: str) -> list[str]:
+    """
+    Extract recommendation titles from final assistant text.
+    Expected primary format: 🎬 **Title (Year)**
+    """
+    if not text:
+        return []
+
+    titles: list[str] = []
+    seen: set[str] = set()
+    patterns = [
+        r"🎬\s*\*\*([^*\n]+?)\s*\((?:19|20)\d{2}\)\*\*",
+        r"🎬\s*\*\*([^*\n]+?)\*\*",
+    ]
+
+    for pattern in patterns:
+        for match in re.findall(pattern, text):
+            title = str(match).strip().strip("-• ")
+            key = title.casefold()
+            if not title or key in seen:
+                continue
+            seen.add(key)
+            titles.append(title)
+
+    return titles
+
+
 def create_scope_guard(model):
     """Factory function for pre-routing in-scope / out-of-scope requests."""
     in_scope_pattern = re.compile(
@@ -316,12 +343,22 @@ def result_validator(state: AgentState):
     
     found_titles = state.get("found_titles", [])
     found_titles_count = len(found_titles)
+    last_filter_results = state.get("last_filter_results", {})
+    last_filter_found_count = 0
+    if isinstance(last_filter_results, dict):
+        last_filter_found_count = int(last_filter_results.get("found_count", 0) or 0)
+    effective_found_count = max(found_titles_count, last_filter_found_count)
     
     # Check control_signal (internal state, not in messages)
     control_signal = state.get("control_signal", "")
     no_results_signal = control_signal == "no_results"
     
-    print(f"[VALIDATOR] Found titles: {found_titles_count}, No-results signal: {no_results_signal}")
+    print(
+        f"[VALIDATOR] Found titles(blacklist): {found_titles_count}, "
+        f"last_filter_found_count: {last_filter_found_count}, "
+        f"effective_found_count: {effective_found_count}, "
+        f"No-results signal: {no_results_signal}"
+    )
     
     # LLM signaled no results after 3 attempts
     if no_results_signal:
@@ -334,7 +371,7 @@ def result_validator(state: AgentState):
         return result
     
     # Success: Found titles
-    if found_titles_count >= 1:
+    if effective_found_count >= 1:
         print("[VALIDATOR] ✓ Success: Titles found")
         result = {
             "validation_status": "success",
@@ -360,16 +397,14 @@ def fallback_response(state: AgentState):
     #log_state("fallback_response", dict(state), "ENTRY")
     
     fallback_message = """
-    Oh nein, gerade habe ich leider nichts Passendes gefunden. 😨
+    Aktuell habe ich auf deinen gewählten Plattformen nichts wirklich Passendes gefunden.
 
-    Lass uns gemeinsam nochmal suchen – vielleicht mit einer etwas breiteren Anfrage oder mit angepassten Plattform-Filtern.
+    Lass uns mit einer leicht angepassten Suche direkt weitermachen:
+    • Weitere Plattformen auswählen
+    • Anfrage breiter formulieren (Genre, Stimmung oder Zeitraum)
+    • 1–2 Referenztitel nennen, die dir gefallen
 
-    Du kannst zum Beispiel:
-    • Mehr Plattformen freigeben, damit ich noch mehr für dich durchstöbern kann
-    • Deine Wünsche etwas allgemeiner formulieren (z. B. Genre, Stimmung, Jahrzehnt)
-    • Oder mir 1–2 Filme/Serien nennen, die du magst – dann finde ich Ähnliches!
-
-    Sag einfach kurz Bescheid, wie du weitermachen möchtest – ich bin bereit für die nächste Runde und finde bestimmt was für dich! 🔍 😊
+    Schreib kurz, welche Richtung du willst, dann starte ich die nächste Suche.
     """
     
     response_msg = AIMessage(content=fallback_message)
@@ -548,7 +583,6 @@ def create_content_researcher(model):
         """
         # Only log on first entry (when no found_titles exist yet)
         found_titles = state.get("found_titles", [])
-        is_first_call = len(found_titles) == 0
         
         #if is_first_call:
             #log_state("content_researcher", dict(state), "ENTRY")
@@ -627,6 +661,23 @@ def create_content_researcher(model):
                 print("[CONTENT_RESEARCHER] LLM sent #NO_RESULTS# signal after 3 attempts")
                 result["control_signal"] = "no_results"
                 return result
+
+        # Track only final presented titles (not raw tool candidates) for blacklist usage.
+        # This runs when the assistant returns normal text output.
+        has_tool_calls = bool(getattr(response, "tool_calls", None))
+        if not has_tool_calls and hasattr(response, "content") and isinstance(response.content, str):
+            presented_titles = _extract_presented_titles_from_text(response.content)
+            if presented_titles:
+                existing_found = state.get("found_titles", [])
+                existing_keys = {str(title).casefold() for title in existing_found}
+                merged_titles = existing_found.copy()
+                for title in presented_titles:
+                    key = title.casefold()
+                    if key not in existing_keys:
+                        merged_titles.append(title)
+                        existing_keys.add(key)
+                result["found_titles"] = merged_titles
+                print(f"[CONTENT_RESEARCHER] Added presented titles to blacklist: {', '.join(presented_titles)}")
         
         # Normal flow - response already added to messages above
         return result
@@ -665,26 +716,14 @@ def tool_node_with_state_tracking(state: AgentState):
                             continue
                         
                         found_count = filter_results.get('found_count', 0)
-                        available_titles = filter_results.get('available_titles', [])
-                        
-                        # Extrahiere Titelnamen für Blacklist
-                        new_found = []
-                        for title_info in available_titles:
-                            if isinstance(title_info, dict) and 'title' in title_info:
-                                new_found.append(title_info['title'])
-                        
-                        # Merge mit bereits gefundenen Titeln (keine Duplikate)
-                        existing_found = state.get('found_titles', [])
-                        updated_found = list(set(existing_found + new_found))
-                        
                         print(f"[TOOL_NODE] Tracked filter results: {found_count} titles found")
-                        if new_found:
-                            print(f"[TOOL_NODE] New titles added to blacklist: {', '.join(new_found)}")
+                        print("[TOOL_NODE] Blacklist unchanged (only final presented titles are blacklisted)")
                         
-                        # Update result mit tracking info
+                        # Update result with filter stats only.
+                        # Do NOT write available tool candidates into found_titles here,
+                        # otherwise they get blacklisted before being presented.
                         result.update({
-                            "last_filter_results": filter_results,
-                            "found_titles": updated_found
+                            "last_filter_results": filter_results
                         })
                         break
                 except Exception as e:

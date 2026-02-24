@@ -50,11 +50,19 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
               • If still <2 titles: Try ONE final time with very broad search (other genres/years)
               • Maximum 3 attempts total (1 initial + 2 retries)
               • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
+              • **If filter_streaming_providers returns found_count >= 2: STOP immediately and produce final user output**
+              • **Do NOT run additional search or filter calls after found_count >= 2**
+              • **Never treat already found candidates as blacklist within the same run**
             
             ### Final Output Format (What the user sees) ###
             
             **If you found ≥2 suitable titles after filtering:**
             Present exactly 4 high-quality recommendations in this format:
+
+            **Early-stop output rule (MANDATORY):**
+            - As soon as you have >=2 suitable titles from filter results, finalize immediately.
+            - Prefer outputting 4 recommendations.
+            - If only 2-3 suitable titles are available, output those 2-3 (do not continue searching just to reach 4).
             
             **If you found <2 suitable titles after 3 attempts:**
             Send only: "#NO_RESULTS#" (The system will handle the fallback response)
@@ -172,11 +180,19 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
           • If still <2 titles: Try ONE final time with very broad "{userstreamingprovider}" search (any genre)
           • Maximum 3 attempts total (1 initial + 2 retries)
           • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
+          • **If filter_streaming_providers returns found_count >= 2: STOP immediately and produce final user output**
+          • **Do NOT run additional search or filter calls after found_count >= 2**
+          • **Never treat already found candidates as blacklist within the same run**
 
         ### Final Output Format (What the user sees) ###
 
         **If you found ≥2 suitable titles after filtering:**
         Present exactly 4 high-quality recommendations in this format:
+
+        **Early-stop output rule (MANDATORY):**
+        - As soon as you have >=2 suitable titles from filter results, finalize immediately.
+        - Prefer outputting 4 recommendations.
+        - If only 2-3 suitable titles are available, output those 2-3 (do not continue searching just to reach 4).
 
         *[kurzes intro mit den nutzerinteressen]*
 
@@ -296,11 +312,18 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
           • If still <2 titles: Try ONE final time with alternative genres or "Kultur" as fallback
           • Maximum 3 attempts total (1 initial + 2 retries)
           • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
+          • **If >=2 relevant validated titles are available: STOP immediately and produce final user output**
+          • **Do NOT continue searching after reaching >=2 relevant validated titles**
 
         ### Final Output Format (What the user sees) ###
 
         **If you found ≥2 relevant titles after validation:**
         Present exactly 4 high-quality recommendations in this format:
+
+        **Early-stop output rule (MANDATORY):**
+        - As soon as >=2 relevant validated titles are available, finalize immediately.
+        - Prefer outputting 4 recommendations.
+        - If only 2-3 strong matches are available, output those 2-3 (do not continue searching just to reach 4).
 
         *[kurzes intro - erwähne die ausgewählten Genres und das Nutzerinteresse]*
 
