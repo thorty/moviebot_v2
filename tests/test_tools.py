@@ -4,12 +4,11 @@ Tests the streaming filter and search tools
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from backend.tools import (
     filter_streaming_providers,
     internet_search_serper,
     process_content,
-    get_all_tools
 )
 
 
@@ -193,7 +192,7 @@ class TestFilterStreamingProviders:
         assert result['found_count'] == 0
         assert result['total_checked'] == 0
         assert len(result['available_titles']) == 0
-    
+
     @patch('backend.tools.get_filtered_titles_tmdb')
     def test_filter_large_list(self, mock_tmdb, capsys):
         """Test filtering with large list (50+ titles) - should not show warning"""
@@ -241,7 +240,7 @@ class TestFilterStreamingProviders:
             for i in range(15)
         ]
         
-        result = filter_streaming_providers.invoke({
+        filter_streaming_providers.invoke({
             'titleList': [f'Film {i}' for i in range(15)],
             'userstreamingproviders': ['Netflix'],
             'paymenttype': ['free', 'rent']

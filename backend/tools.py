@@ -1,5 +1,6 @@
 
-import sys, os
+import os
+import sys
 from typing import Any, Dict
 from bs4 import BeautifulSoup
 from tavily import TavilyClient
@@ -9,7 +10,6 @@ import requests # Import the tool decorator again
 sys.path.append('./utils')  # Add the 'utils' directory to the Python path
 from backend.utils.helper import choose_streaming_providers, get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
 from langchain_community.utilities import GoogleSerperAPIWrapper
-from backend.utils.tmdb.common import Provider, FreeProvider, PaymentTypes
 from backend.utils.setupenv import load_environment
 
 load_environment(override=True)
@@ -30,6 +30,10 @@ def _build_title_key(title_info: Any) -> tuple[str, str]:
     title = str(raw_title).strip().casefold()
     media_type = str(raw_media_type).strip().casefold()
     return (title, media_type)
+
+
+def _is_mediatheken_mode(userstreamingproviders: list[str]) -> bool:
+    return any(str(provider).strip().casefold() == "mediatheken" for provider in userstreamingproviders)
 
 @tool
 def filter_streaming_providers(titleList: list, userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
@@ -58,10 +62,7 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
         Output: {'available_titles': [...], 'found_count': 2, ...}
     """
     
-    print(f"[TOOL] Choosing streaming providers based on payment types: {paymenttypes}")
-    # choose streeming providers based on properties
-    userstreamingproviders = choose_streaming_providers(userstreamingproviders, paymenttypes)                      
-    print(f"[TOOL] filter_streaming_providers called: {len(titleList)} titles, providers: {userstreamingproviders}")
+    original_userstreamingproviders = list(userstreamingproviders)
 
     # Deduplicate incoming titles before TMDB calls to avoid redundant lookups/results
     seen_input_keys = set()
@@ -78,6 +79,11 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
     removed_input_duplicates = len(titleList) - len(unique_title_list)
     if removed_input_duplicates > 0:
         print(f"[TOOL] Removed {removed_input_duplicates} duplicate title(s) from input")
+
+    print(f"[TOOL] Choosing streaming providers based on payment types: {paymenttypes}")
+    # choose streeming providers based on properties
+    userstreamingproviders = choose_streaming_providers(original_userstreamingproviders, paymenttypes)
+    print(f"[TOOL] filter_streaming_providers called: {len(titleList)} titles, providers: {userstreamingproviders}")
     
     # Warnung wenn zu wenige Titel
     if len(unique_title_list) < 30:
@@ -195,6 +201,13 @@ def get_search_tools():
     
 def get_streamingprovider_tools():
     return [filter_streaming_providers]  # This function returns a list of tools related to streaming providers.
+
+
+def get_tools_for_providers(userstreamingproviders: list[str]):
+    """Return only the tools relevant for the current provider selection."""
+    if _is_mediatheken_mode(userstreamingproviders):
+        return [internet_search_tavily]
+    return get_all_tools()
 
 def get_all_tools():
     """Returns all available tools."""

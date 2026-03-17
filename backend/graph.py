@@ -9,7 +9,7 @@ from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
 from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt, get_content_researcher_prompt_mediatheken, get_scope_guard_prompt
 from langchain_openai import ChatOpenAI
-from backend.tools import get_all_tools
+from backend.tools import get_all_tools, get_tools_for_providers
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from backend.utils.tmdb.common import Provider, PaymentTypes
 import logging
@@ -587,14 +587,14 @@ def create_content_researcher(model):
         #if is_first_call:
             #log_state("content_researcher", dict(state), "ENTRY")
            
-        tools = get_all_tools()
-        model_with_searchtools = model.bind_tools(tools)    
-
         default_streamingproviders = [provider.value for provider in Provider]
         userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
         paymenttypes = state.get("paymenttypes", [payment.value for payment in PaymentTypes])
         analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
         found_titles = state.get("found_titles", [])
+
+        tools = get_tools_for_providers(userstreamingproviders)
+        model_with_searchtools = model.bind_tools(tools)
         
         print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
         
