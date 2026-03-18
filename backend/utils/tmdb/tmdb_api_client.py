@@ -42,7 +42,7 @@ def get_movies_with_recro(titles: list, providers: list[str]):
   print("get_movies_with_recro", titles)
   movies =[]
   # get movies from tmdb from given titles
-  for item in titles:
+  for index, item in enumerate(titles):
     # Support both old format (string) and new format (dict with media_type)
     if isinstance(item, dict):
       title = item.get('title')
@@ -53,8 +53,9 @@ def get_movies_with_recro(titles: list, providers: list[str]):
     
     if not title:
       continue
-      
-    movie = get_basic_data_from_tmdb_for_title(title, media_type)
+
+    append_responses = ["watch/providers", "recommendations"] if index == 0 else None
+    movie = get_basic_data_from_tmdb_for_title(title, media_type, append_responses)
     if movie:
       movies.append(movie)
   # add similar recommendations from tmdb
@@ -136,17 +137,17 @@ def get_detail_data_from_tmdb_for_titles(titles: list):
       movies.append(movie)
   return movies
 
-def get_basic_data_from_tmdb_for_title(title: str, media_type: str = "movie"):
+def get_basic_data_from_tmdb_for_title(title: str, media_type: str = "movie", append_responses=None):
   """Get basic data for a title. Falls back to other media_type if not found."""
   try:
     print(f"get_movie_data_from_tmdb","title=",title,"media_type=",media_type)
-    fulldata = create_basic_movie_data(title, media_type)
+    fulldata = create_basic_movie_data(title, media_type, append_responses)
     
     # Fallback: If not found, try the other media type
     if not fulldata:
       fallback_type = "tv" if media_type == "movie" else "movie"
       print(f"[FALLBACK] Title '{title}' not found as {media_type}, trying {fallback_type}")
-      fulldata = create_basic_movie_data(title, fallback_type)
+      fulldata = create_basic_movie_data(title, fallback_type, append_responses)
     
     return fulldata
   except Exception as e:
@@ -172,8 +173,10 @@ def get_detail_data_from_tmdb_for_title(title: str, media_type: str = "movie"):
 
 def get_recro_movies(movies, media_type="movie"):  
   if len(movies) > 0:
-    searchId = movies[0]["id"]
-    results = find_smilar_movies(searchId, media_type)
+    results = get_recommendation_payload(movies[0])
+    if not results:
+      searchId = movies[0]["id"]
+      results = find_smilar_movies(searchId, media_type)
     if results:
       movies = parse_movies_from_search(results, media_type)
     return movies
@@ -205,7 +208,7 @@ def parse_movies_from_search(results, media_type="movie"):
       movies.append(filtered_data)
   return movies
 
-def find_movie_basic(title, lang, media_type="movie"):
+def find_movie_basic(title, lang, media_type="movie", append_responses=None):
   original_title = title  # Keep original for matching
   title_encoded = title.replace(' ', '+')
   endpoint = "movie" if media_type == "movie" else "tv"
@@ -219,6 +222,9 @@ def find_movie_basic(title, lang, media_type="movie"):
     if "results" in str(data) and len(data["results"]) > 0:
       movie = get_movie_form_search(data["results"], original_title, media_type)
       if movie:
+        if append_responses:
+          movie = get_detail_moviedata(get_movie_id(movie), media_type, append_responses)
+          movie = json.loads(movie)
         # Normalize TV show fields to movie format
         movie = normalize_media_item(movie, media_type)
       return movie
@@ -283,6 +289,21 @@ def get_watch_provider_payload(movie):
   return None
 
 
+def get_recommendation_payload(movie):
+  if not movie:
+    return None
+
+  appended_recommendations = movie.get("_recommendations_payload")
+  if appended_recommendations:
+    return appended_recommendations
+
+  recommendations = movie.get("recommendations")
+  if recommendations:
+    return recommendations
+
+  return None
+
+
 def filter_watch_providers(data, lang):
   # Filter data under "<lang>"
   data = json.loads(data)
@@ -326,17 +347,20 @@ def create_movie_data(title, media_type="movie"):
                      }
     return filtered_data
 
-def create_basic_movie_data(title, media_type="movie"):
-  movie = find_movie_basic(title, "de-DE", media_type)
+def create_basic_movie_data(title, media_type="movie", append_responses=None):
+  movie = find_movie_basic(title, "de-DE", media_type, append_responses)
   if movie and "id" in movie:
     id = get_movie_id(movie)
-    providers = get_watch_providers(id, media_type)
+    providers = get_watch_provider_payload(movie)
+    if not providers:
+      providers = get_watch_providers(id, media_type)
     flatproviders = get_watch_providers_via_subtype(filter_watch_providers(providers, "DE"),"flatrate" )
     rentproviders = get_watch_providers_via_subtype(filter_watch_providers(providers, "DE"),"rent" )
     buyproviders = get_watch_providers_via_subtype(filter_watch_providers(providers, "DE"),"buy" )
 
     filtered_data = {'title': movie['title'], 'flatproviders': flatproviders, 'rentproviders': rentproviders, 'overview': movie.get('overview', ''),
-                     'release_date': movie.get('release_date', ''), 'id': id, 'media_type': media_type
+                     'release_date': movie.get('release_date', ''), 'id': id, 'media_type': media_type,
+                     '_recommendations_payload': get_recommendation_payload(movie)
                      }
     return filtered_data
 

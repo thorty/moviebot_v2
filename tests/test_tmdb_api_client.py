@@ -103,3 +103,63 @@ def test_create_movie_data_falls_back_to_provider_endpoint(monkeypatch):
     assert result["flatproviders"] == ["Disney Plus"]
     assert result["rentproviders"] == []
     assert result["buyproviders"] == []
+
+
+def test_create_basic_movie_data_keeps_appended_recommendations(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    movie = {
+        "id": 789,
+        "title": "Seed Movie",
+        "watch/providers": {
+            "results": {
+                "DE": {
+                    "flatrate": [{"provider_name": "Netflix"}],
+                }
+            }
+        },
+        "recommendations": {
+            "results": [{"id": 99, "title": "Recommended Movie", "overview": "Rec", "release_date": "2025-01-01"}]
+        },
+        "overview": "Seed overview",
+        "release_date": "2024-01-01",
+    }
+
+    monkeypatch.setattr(tmdb_api_client, "find_movie_basic", lambda *args, **kwargs: movie)
+
+    def _unexpected_provider_call(*args, **kwargs):
+        raise AssertionError("Expected appended watch/providers payload to be used")
+
+    monkeypatch.setattr(tmdb_api_client, "get_watch_providers", _unexpected_provider_call)
+
+    result = tmdb_api_client.create_basic_movie_data(
+        "Seed Movie",
+        append_responses=["watch/providers", "recommendations"],
+    )
+
+    assert result["title"] == "Seed Movie"
+    assert result["flatproviders"] == ["Netflix"]
+    assert result["_recommendations_payload"] == movie["recommendations"]
+
+
+def test_get_recro_movies_prefers_appended_recommendations(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    appended_recommendations = {
+        "results": [{"id": 99, "title": "Recommended Movie", "overview": "Rec", "release_date": "2025-01-01"}]
+    }
+    movies = [{"id": 1, "_recommendations_payload": appended_recommendations}]
+
+    def _unexpected_find_similar(*args, **kwargs):
+        raise AssertionError("Expected appended recommendations payload to be used")
+
+    monkeypatch.setattr(tmdb_api_client, "find_smilar_movies", _unexpected_find_similar)
+    monkeypatch.setattr(
+        tmdb_api_client,
+        "parse_movies_from_search",
+        lambda results, media_type: [{"title": results["results"][0]["title"], "media_type": media_type}],
+    )
+
+    result = tmdb_api_client.get_recro_movies(movies, "movie")
+
+    assert result == [{"title": "Recommended Movie", "media_type": "movie"}]
