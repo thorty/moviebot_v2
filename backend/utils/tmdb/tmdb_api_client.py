@@ -241,7 +241,7 @@ def find_movie(title, lang, media_type="movie"):
       print("movie found!")
       movie = get_movie_form_search(data["results"], original_title, media_type)
       if movie:
-        movie = get_detail_moviedata(get_movie_id(movie), media_type)
+        movie = get_detail_moviedata(get_movie_id(movie), media_type, ["watch/providers"])
         movie = json.loads(movie)
         # Normalize TV show fields
         movie = normalize_media_item(movie, media_type)
@@ -262,11 +262,25 @@ def get_watch_providers(id, media_type="movie"):
   response = requests.get(url, headers=headers)
   return response.text
 
-def get_detail_moviedata(id, media_type="movie"):
+def get_detail_moviedata(id, media_type="movie", append_responses=None):
   endpoint = "movie" if media_type == "movie" else "tv"
   url = f"https://api.themoviedb.org/3/{endpoint}/{id}?language=en-US"
+  if append_responses:
+    append_value = ",".join(append_responses)
+    url += f"&append_to_response={append_value}"
   response = requests.get(url, headers=headers)
   return response.text
+
+
+def get_watch_provider_payload(movie):
+  if not movie:
+    return None
+
+  appended_providers = movie.get("watch/providers")
+  if appended_providers:
+    return json.dumps(appended_providers)
+
+  return None
 
 
 def filter_watch_providers(data, lang):
@@ -295,7 +309,9 @@ def create_movie_data(title, media_type="movie"):
   movie = find_movie(title, "de-DE", media_type)
   if movie and "id" in movie:
     id = get_movie_id(movie)
-    providers = get_watch_providers(id, media_type)
+    providers = get_watch_provider_payload(movie)
+    if not providers:
+      providers = get_watch_providers(id, media_type)
     flatproviders = get_watch_providers_via_subtype(filter_watch_providers(providers, "DE"),"flatrate" )
     rentproviders = get_watch_providers_via_subtype(filter_watch_providers(providers, "DE"),"rent" )
     buyproviders = get_watch_providers_via_subtype(filter_watch_providers(providers, "DE"),"buy" )
