@@ -1,6 +1,25 @@
-import importlib
 import json
+import importlib
 import sys
+import threading
+from unittest.mock import Mock
+
+
+class FakeAsyncClient:
+    def __init__(self, responses):
+        self._responses = iter(responses)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def get(self, url):
+        response = next(self._responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def _load_tmdb_module(monkeypatch):
@@ -50,12 +69,14 @@ def test_create_movie_data_prefers_appended_watch_providers(monkeypatch):
         "vote_count": 100,
     }
 
-    monkeypatch.setattr(tmdb_api_client, "find_movie", lambda *args, **kwargs: movie)
+    async def _fake_find_movie_async(*args, **kwargs):
+        return movie
 
-    def _unexpected_provider_call(*args, **kwargs):
+    async def _unexpected_provider_call(*args, **kwargs):
         raise AssertionError("Expected appended watch/providers payload to be used")
 
-    monkeypatch.setattr(tmdb_api_client, "get_watch_providers", _unexpected_provider_call)
+    monkeypatch.setattr(tmdb_api_client, "_find_movie_async", _fake_find_movie_async)
+    monkeypatch.setattr(tmdb_api_client, "_get_watch_providers_async", _unexpected_provider_call)
 
     result = tmdb_api_client.create_movie_data("Test Movie")
 
@@ -79,11 +100,12 @@ def test_create_movie_data_falls_back_to_provider_endpoint(monkeypatch):
         "release_date": "2024-01-01",
     }
 
-    monkeypatch.setattr(tmdb_api_client, "find_movie", lambda *args, **kwargs: movie)
+    async def _fake_find_movie_async(*args, **kwargs):
+        return movie
 
     provider_calls = []
 
-    def _provider_fallback(*args, **kwargs):
+    async def _provider_fallback(*args, **kwargs):
         provider_calls.append((args, kwargs))
         return json.dumps(
             {
@@ -95,7 +117,8 @@ def test_create_movie_data_falls_back_to_provider_endpoint(monkeypatch):
             }
         )
 
-    monkeypatch.setattr(tmdb_api_client, "get_watch_providers", _provider_fallback)
+    monkeypatch.setattr(tmdb_api_client, "_find_movie_async", _fake_find_movie_async)
+    monkeypatch.setattr(tmdb_api_client, "_get_watch_providers_async", _provider_fallback)
 
     result = tmdb_api_client.create_movie_data("Fallback Movie")
 
@@ -125,12 +148,14 @@ def test_create_basic_movie_data_keeps_appended_recommendations(monkeypatch):
         "release_date": "2024-01-01",
     }
 
-    monkeypatch.setattr(tmdb_api_client, "find_movie_basic", lambda *args, **kwargs: movie)
+    async def _fake_find_movie_basic_async(*args, **kwargs):
+        return movie
 
-    def _unexpected_provider_call(*args, **kwargs):
+    async def _unexpected_provider_call(*args, **kwargs):
         raise AssertionError("Expected appended watch/providers payload to be used")
 
-    monkeypatch.setattr(tmdb_api_client, "get_watch_providers", _unexpected_provider_call)
+    monkeypatch.setattr(tmdb_api_client, "_find_movie_basic_async", _fake_find_movie_basic_async)
+    monkeypatch.setattr(tmdb_api_client, "_get_watch_providers_async", _unexpected_provider_call)
 
     result = tmdb_api_client.create_basic_movie_data(
         "Seed Movie",
@@ -150,16 +175,119 @@ def test_get_recro_movies_prefers_appended_recommendations(monkeypatch):
     }
     movies = [{"id": 1, "_recommendations_payload": appended_recommendations}]
 
-    def _unexpected_find_similar(*args, **kwargs):
+    async def _unexpected_find_similar(*args, **kwargs):
         raise AssertionError("Expected appended recommendations payload to be used")
 
-    monkeypatch.setattr(tmdb_api_client, "find_smilar_movies", _unexpected_find_similar)
-    monkeypatch.setattr(
-        tmdb_api_client,
-        "parse_movies_from_search",
-        lambda results, media_type: [{"title": results["results"][0]["title"], "media_type": media_type}],
-    )
+    async def _fake_parse_movies_from_search(results, media_type="movie", client=None):
+        return [{"title": results["results"][0]["title"], "media_type": media_type}]
+
+    monkeypatch.setattr(tmdb_api_client, "_find_smilar_movies_async", _unexpected_find_similar)
+    monkeypatch.setattr(tmdb_api_client, "_parse_movies_from_search_async", _fake_parse_movies_from_search)
 
     result = tmdb_api_client.get_recro_movies(movies, "movie")
 
     assert result == [{"title": "Recommended Movie", "media_type": "movie"}]
+
+
+def test_get_movies_for_providers_preserves_input_order(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    async def _resolve_title(title, media_type="movie", append_responses=None, client=None):
+        if title == "Skip Me":
+            return None
+        return {
+            "title": title,
+            "flatproviders": [],
+            "rentproviders": [],
+            "overview": f"Overview {title}",
+            "release_date": "2024-01-01",
+            "id": len(title),
+            "media_type": media_type,
+        }
+
+    monkeypatch.setattr(tmdb_api_client, "_get_basic_data_from_tmdb_for_title_async", _resolve_title)
+
+    result = tmdb_api_client.get_movies_for_providers(["First", "Skip Me", "Second"], [])
+
+    assert [item["title"] for item in result] == ["First", "Second"]
+
+
+def test_get_movies_with_recro_appends_only_seed_title(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    calls = []
+    lock = threading.Lock()
+
+    async def _resolve_title(title, media_type="movie", append_responses=None, client=None):
+        with lock:
+            calls.append((title, tuple(append_responses) if append_responses else None))
+        return {
+            "title": title,
+            "flatproviders": ["Netflix"],
+            "rentproviders": [],
+            "overview": f"Overview {title}",
+            "release_date": "2024-01-01",
+            "id": len(title),
+            "media_type": media_type,
+            "_recommendations_payload": {"results": []},
+        }
+
+    async def _fake_get_recro_movies(movies, media_type="movie", client=None):
+        return []
+
+    monkeypatch.setattr(tmdb_api_client, "_get_basic_data_from_tmdb_for_title_async", _resolve_title)
+    monkeypatch.setattr(tmdb_api_client, "_get_recro_movies_async", _fake_get_recro_movies)
+
+    result = tmdb_api_client.get_movies_with_recro(["Seed", "Other"], ["Netflix"])
+
+    assert "Title: Seed" in result
+    assert "Title: Other" in result
+    assert sorted(calls) == [
+        ("Other", None),
+        ("Seed", ("watch/providers", "recommendations")),
+    ]
+
+
+def test_tmdb_get_retries_on_429_with_retry_after(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    sleep_calls = []
+    client = FakeAsyncClient(
+        [
+            Mock(status_code=429, text="{}", headers={"Retry-After": "0.25"}),
+            Mock(status_code=200, text='{"ok": true}', headers={}),
+        ]
+    )
+
+    async def _fake_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(tmdb_api_client.asyncio, "sleep", _fake_sleep)
+
+    response = tmdb_api_client._run_async(tmdb_api_client._tmdb_get_async("https://example.test/tmdb", client))
+
+    assert response.status_code == 200
+    assert sleep_calls == [0.25]
+
+
+def test_get_watch_providers_returns_empty_payload_after_exhausted_retries(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    sleep_calls = []
+    client = FakeAsyncClient([
+        Mock(status_code=429, text="{}", headers={}),
+        Mock(status_code=429, text="{}", headers={}),
+        Mock(status_code=429, text="{}", headers={}),
+        Mock(status_code=429, text="{}", headers={}),
+    ])
+
+    async def _fake_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(tmdb_api_client.asyncio, "sleep", _fake_sleep)
+    monkeypatch.setattr(tmdb_api_client, "_make_async_client", lambda: client)
+
+    payload = tmdb_api_client.get_watch_providers(1)
+
+    assert json.loads(payload) == {"results": {}}
+    assert len(sleep_calls) == tmdb_api_client.TMDB_MAX_RETRIES
