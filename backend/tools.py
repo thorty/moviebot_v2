@@ -16,6 +16,7 @@ load_environment(override=True)
 
 TAVILY_API_KEY = os.getenv('TAVILY_API_KEY')
 SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
+TAVILY_SNIPPET_MAX_CHARS = 280
 
 
 def _build_title_key(title_info: Any) -> tuple[str, str]:
@@ -34,6 +35,36 @@ def _build_title_key(title_info: Any) -> tuple[str, str]:
 
 def _is_mediatheken_mode(userstreamingproviders: list[str]) -> bool:
     return any(str(provider).strip().casefold() == "mediatheken" for provider in userstreamingproviders)
+
+
+def _truncate_text(value: Any, max_chars: int) -> str:
+    text = str(value or "").strip()
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
+
+
+def _compact_tavily_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    compact_results = []
+
+    for item in response.get("results", []) or []:
+        compact_results.append(
+            {
+                "title": item.get("title", ""),
+                "url": item.get("url", ""),
+                "content": _truncate_text(item.get("content", ""), TAVILY_SNIPPET_MAX_CHARS),
+                "score": item.get("score"),
+            }
+        )
+
+    return {
+        "query": response.get("query"),
+        "follow_up_questions": response.get("follow_up_questions"),
+        "answer": response.get("answer"),
+        "results": compact_results,
+        "response_time": response.get("response_time"),
+        "request_id": response.get("request_id"),
+    }
 
 @tool
 def filter_streaming_providers(titleList: list, userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
@@ -135,8 +166,7 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
         'total_checked': len(unique_title_list),
         'duplicates_removed_input': removed_input_duplicates,
         'duplicates_removed_results': removed_result_duplicates,
-        'found_count': len(available_titles),
-        'raw_results': deduplicated_filtered_titles
+        'found_count': len(available_titles)
     }
     
     print(f"[TOOL] Results: {len(available_titles)} available, {len(unavailable_titles)} unavailable")
@@ -192,7 +222,7 @@ def internet_search_tavily(query: str) -> Dict[str, Any]:
         search_depth="advanced",
         country="germany"
     )
-    return response
+    return _compact_tavily_response(response)
 
 
 def get_search_tools():
