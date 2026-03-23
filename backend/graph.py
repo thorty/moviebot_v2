@@ -592,6 +592,12 @@ def create_content_researcher(model):
         paymenttypes = state.get("paymenttypes", [payment.value for payment in PaymentTypes])
         analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
         found_titles = state.get("found_titles", [])
+        last_filter_results = state.get("last_filter_results", {})
+        last_filter_found_count = 0
+        if isinstance(last_filter_results, dict):
+            last_filter_found_count = int(last_filter_results.get("found_count", 0) or 0)
+
+        force_finalize = last_filter_found_count >= 2
 
         tools = get_tools_for_providers(userstreamingproviders)
         model_with_searchtools = model.bind_tools(tools)
@@ -618,6 +624,19 @@ def create_content_researcher(model):
         Suche nach NEUEN, ANDEREN Titeln die noch nicht genannt wurden!
         """
             base_prompt += blacklist_note
+
+        if force_finalize:
+            finalize_note = f"""
+
+        **EARLY STOP ACTIVATED - FINALIZE NOW**
+        - The latest `filter_streaming_providers` result already found {last_filter_found_count} suitable title(s).
+        - You MUST finalize now using only the titles from the latest filter results.
+        - Do NOT call any search or filter tool again.
+        - If 4 or more suitable titles exist, output the best 4.
+        - If only 2-3 suitable titles exist, output exactly those 2-3.
+        - Do not continue searching just to find more titles.
+            """
+            base_prompt += finalize_note
         
         sys_msg = SystemMessage(content=base_prompt)
         original_messages = state.get("messages", [])
@@ -628,6 +647,12 @@ def create_content_researcher(model):
                 f"[CONTEXT_PRUNE][content_researcher] total_messages={len(original_messages)} "
                 f"after_prune={len(llm_messages)} removed={removed_count}"
             )
+        if force_finalize:
+            print(f"[CONTENT_RESEARCHER] Early stop active with {last_filter_found_count} filtered title(s); finalizing without more tool calls")
+
+        # Keep using the tool-bound model even during forced finalization.
+        # Anthropic-compatible backends reject histories containing tool messages
+        # when the request omits the tools parameter entirely.
         response = model_with_searchtools.invoke([sys_msg] + llm_messages)
         
         # ALWAYS add response to messages first (for tools_condition to work)
@@ -651,9 +676,26 @@ def create_content_researcher(model):
             if hasattr(response, 'tool_calls') and response.tool_calls:
                 print(f"[CONTENT_RESEARCHER] ✓ Tool calls present, will execute tools")
             else:
-                print(f"[CONTENT_RESEARCHER] No tool calls, signaling no_results")
-                result["control_signal"] = "no_results"
-                return result
+                print(f"[CONTENT_RESEARCHER] Empty response without tool calls, retrying once with recovery instruction")
+                recovery_msg = HumanMessage(
+                    content=(
+                        "Your previous response was empty. You must respond now. "
+                        "If enough candidates already exist, finalize immediately. "
+                        "Otherwise call the next required tool. "
+                        "Only return #NO_RESULTS# if you truly cannot continue after the allowed attempts."
+                    )
+                )
+                response = model_with_searchtools.invoke([sys_msg] + llm_messages + [recovery_msg])
+                result["messages"] = [response]
+
+                if not response.content or response.content == "null":
+                    has_retry_tool_calls = bool(getattr(response, 'tool_calls', None))
+                    if has_retry_tool_calls:
+                        print(f"[CONTENT_RESEARCHER] ✓ Recovery retry produced tool calls")
+                    else:
+                        print(f"[CONTENT_RESEARCHER] Recovery retry still empty and without tool calls, signaling no_results")
+                        result["control_signal"] = "no_results"
+                        return result
         
         # Check for #NO_RESULTS# signal
         if hasattr(response, 'content') and isinstance(response.content, str):
