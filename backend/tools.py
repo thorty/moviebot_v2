@@ -282,7 +282,18 @@ def internet_search_google(query: str) -> Dict[str, Any]:
         A compact answer and source list to be processed further by the LLM.
     """
 
-    response = _run_google_grounded_search(query)
+    try:
+        response = _run_google_grounded_search(query)
+    except Exception as exc:
+        error_message = str(exc)
+        print(f"[TOOL] Google grounded search failed: {error_message}")
+        return {
+            "query": query,
+            "answer": "",
+            "results": [],
+            "error": "google_search_unavailable",
+            "error_message": _truncate_text(error_message, 500),
+        }
 
     answer = getattr(response, "text", "") or ""
     return {

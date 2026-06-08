@@ -26,6 +26,7 @@ class TestFilterStreamingProviders:
                 'overview': 'A cyborg policewoman...',
                 'poster_path': '/ghost.jpg',
                 'poster_url': 'https://image.tmdb.org/t/p/w342/ghost.jpg',
+                'watch_link': 'https://www.themoviedb.org/movie/9323/watch?locale=DE',
                 'release_date': '1995-11-18',
                 'id': 9323
             },
@@ -54,6 +55,7 @@ class TestFilterStreamingProviders:
         assert result['available_titles'][0]['title'] == 'Ghost in the Shell'
         assert result['available_titles'][0]['poster_path'] == '/ghost.jpg'
         assert result['available_titles'][0]['poster_url'] == 'https://image.tmdb.org/t/p/w342/ghost.jpg'
+        assert result['available_titles'][0]['watch_link'] == 'https://www.themoviedb.org/movie/9323/watch?locale=DE'
         
     @patch('backend.tools.get_filtered_titles_tmdb')
     def test_filter_with_only_flatproviders_available(self, mock_tmdb):
@@ -283,6 +285,21 @@ class TestInternetSearchGoogle:
         assert result["query"] == query
         assert result["answer"] == "Complex search results"
         mock_grounded_search.assert_called_once_with(query)
+
+    @patch('backend.tools._run_google_grounded_search')
+    def test_search_returns_structured_error_on_google_failure(self, mock_grounded_search):
+        """Test search failures do not crash the chat request"""
+        mock_grounded_search.side_effect = RuntimeError(
+            "503 UNAVAILABLE. This model is currently experiencing high demand."
+        )
+
+        result = internet_search_google.invoke({'query': 'ARD Mediathek Krimi'})
+
+        assert result["query"] == "ARD Mediathek Krimi"
+        assert result["answer"] == ""
+        assert result["results"] == []
+        assert result["error"] == "google_search_unavailable"
+        assert "503 UNAVAILABLE" in result["error_message"]
 
 
 # Pytest fixtures
