@@ -8,7 +8,6 @@ from unittest.mock import Mock, patch
 from backend.tools import (
     filter_streaming_providers,
     internet_search_google,
-    process_content,
 )
 
 
@@ -280,38 +279,6 @@ class TestInternetSearchGoogle:
         assert result["query"] == query
         assert result["answer"] == "Complex search results"
         mock_grounded_search.assert_called_once_with(query)
-
-
-class TestProcessContent:
-    """Tests for process_content tool"""
-    
-    @patch('backend.tools.requests.get')
-    def test_process_webpage_content(self, mock_get):
-        """Test processing HTML content from webpage"""
-        # Mock HTML response
-        mock_response = Mock()
-        mock_response.content = b'<html><body><h1>Title</h1><p>Content here</p></body></html>'
-        mock_get.return_value = mock_response
-        
-        result = process_content.invoke({'url': 'https://example.com'})
-        
-        # Should extract text from HTML
-        assert 'Title' in result
-        assert 'Content here' in result
-        mock_get.assert_called_once_with('https://example.com')
-    
-    @patch('backend.tools.requests.get')
-    def test_process_empty_webpage(self, mock_get):
-        """Test processing empty webpage"""
-        mock_response = Mock()
-        mock_response.content = b'<html><body></body></html>'
-        mock_get.return_value = mock_response
-        
-        result = process_content.invoke({'url': 'https://example.com/empty'})
-        
-        # Should return minimal text
-        assert isinstance(result, str)
-        assert len(result) >= 0
 
 
 # Pytest fixtures

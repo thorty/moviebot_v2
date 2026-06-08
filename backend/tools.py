@@ -2,10 +2,13 @@
 import os
 import sys
 from typing import Any, Dict
-from bs4 import BeautifulSoup
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field, field_validator
-import requests # Import the tool decorator again
+# Tavily fallback, kept commented for easy future switching:
+# from tavily import TavilyClient
+# Optional page-content extraction fallback, kept commented:
+# import requests
+# from bs4 import BeautifulSoup
 sys.path.append('./utils')  # Add the 'utils' directory to the Python path
 from backend.utils.helper import choose_streaming_providers, get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
 from backend.utils.setupenv import get_required_env_value, load_environment
@@ -14,6 +17,9 @@ load_environment()
 
 GOOGLE_SEARCH_MODEL = os.getenv("GOOGLE_SEARCH_MODEL", os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash"))
 SEARCH_SNIPPET_MAX_CHARS = 280
+# Tavily fallback, kept commented for easy future switching:
+# TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+# TAVILY_SNIPPET_MAX_CHARS = 280
 
 
 class TitleInfo(BaseModel):
@@ -68,6 +74,30 @@ def _truncate_text(value: Any, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 3].rstrip() + "..."
+
+
+# Tavily fallback, kept commented for easy future switching:
+# def _compact_tavily_response(response: Dict[str, Any]) -> Dict[str, Any]:
+#     compact_results = []
+#
+#     for item in response.get("results", []) or []:
+#         compact_results.append(
+#             {
+#                 "title": item.get("title", ""),
+#                 "url": item.get("url", ""),
+#                 "content": _truncate_text(item.get("content", ""), TAVILY_SNIPPET_MAX_CHARS),
+#                 "score": item.get("score"),
+#             }
+#         )
+#
+#     return {
+#         "query": response.get("query"),
+#         "follow_up_questions": response.get("follow_up_questions"),
+#         "answer": response.get("answer"),
+#         "results": compact_results,
+#         "response_time": response.get("response_time"),
+#         "request_id": response.get("request_id"),
+#     }
 
 
 def _extract_google_grounding_sources(response: Any) -> list[dict[str, str]]:
@@ -231,14 +261,15 @@ def filter_streaming_providers(titleList: list[TitleInfo], userstreamingprovider
     
     return result
 
-@tool("process_content", return_direct=False)
-def process_content(url: str) -> str:
-
-    """Processes content from a webpage."""
-
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    return soup.get_text()
+# Optional page-content extraction tool.
+# Use this if the search tool returns URLs that the model should fetch and parse itself.
+# @tool("process_content", return_direct=False)
+# def process_content(url: str) -> str:
+#     """Processes content from a webpage."""
+#
+#     response = requests.get(url)
+#     soup = BeautifulSoup(response.content, 'html.parser')
+#     return soup.get_text()
 
 @tool("internet_search_google", return_direct=False)
 def internet_search_google(query: str) -> Dict[str, Any]:
@@ -267,19 +298,55 @@ def internet_search_google(query: str) -> Dict[str, Any]:
     }
 
 
-def get_search_tools():
-    return [internet_search_google, process_content]
-    
-def get_streamingprovider_tools():
-    return [filter_streaming_providers]  # This function returns a list of tools related to streaming providers.
+# Tavily fallback, kept commented for easy future switching:
+# @tool("internet_search_tavily", return_direct=False)
+# def internet_search_tavily(query: str) -> Dict[str, Any]:
+#     """Searches the internet using Tavily API.
+#
+#     Args:
+#         query (str): The search query.
+#
+#     Returns:
+#         The search results from Tavily API to be processed further by the LLM.
+#     """
+#
+#     client = TavilyClient(api_key=TAVILY_API_KEY)
+#     response = client.search(
+#         query=query,
+#         search_depth="advanced",
+#         country="germany",
+#     )
+#     return _compact_tavily_response(response)
+#
+#
+# Legacy search-tool group helper.
+# Use this if the graph is split again into search-only and streaming-provider tool groups.
+# def get_search_tools():
+#     return [internet_search_google]
+#     # With optional page-content extraction:
+#     # return [internet_search_google, process_content]
+#     # Tavily fallback:
+#     # return [internet_search_tavily]
+#     # Tavily with optional page-content extraction:
+#     # return [internet_search_tavily, process_content]
+
+
+# Legacy streaming-provider-tool group helper.
+# Use this if the graph is split again into search-only and streaming-provider tool groups.
+# def get_streamingprovider_tools():
+#     return [filter_streaming_providers]
 
 
 def get_tools_for_providers(userstreamingproviders: list[str]):
     """Return only the tools relevant for the current provider selection."""
     if _is_mediatheken_mode(userstreamingproviders):
         return [internet_search_google]
+        # Tavily fallback:
+        # return [internet_search_tavily]
     return get_all_tools()
 
 def get_all_tools():
     """Returns all available tools."""
     return [internet_search_google, filter_streaming_providers]
+    # Tavily fallback:
+    # return [internet_search_tavily, filter_streaming_providers]
