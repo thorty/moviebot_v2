@@ -2,8 +2,9 @@ from fastapi.testclient import TestClient
 from datetime import datetime, timedelta, timezone
 
 import jwt
+from langchain_core.messages import AIMessage
 
-from main import app
+from main import ChatRequest, app, invoke_user_chat
 
 
 client = TestClient(app)
@@ -211,6 +212,31 @@ def test_chat_appends_user_and_assistant_messages_in_order(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert appended_roles == ["user", "assistant"]
+
+
+def test_invoke_user_chat_stringifies_structured_ai_content(monkeypatch) -> None:
+    class FakeGraph:
+        def invoke(self, graph_input, config):
+            return {
+                "messages": [
+                    AIMessage(
+                        content=[
+                            {"type": "text", "text": "Erste Empfehlung"},
+                            {"type": "text", "text": "Zweite Empfehlung"},
+                        ]
+                    )
+                ]
+            }
+
+    monkeypatch.setattr("main.get_graph_app", lambda: FakeGraph())
+
+    reply = invoke_user_chat(
+        user_id="user-1",
+        conversation_id="conv-1",
+        payload=ChatRequest(message="Was soll ich schauen?"),
+    )
+
+    assert reply == "Erste Empfehlung\nZweite Empfehlung"
 
 
 def test_start_new_chat_without_token_returns_401() -> None:

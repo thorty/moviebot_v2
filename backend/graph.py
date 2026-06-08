@@ -8,9 +8,9 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
 from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt, get_content_researcher_prompt_mediatheken, get_scope_guard_prompt
-from langchain_openai import ChatOpenAI
 from backend.tools import get_all_tools, get_tools_for_providers
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
+from backend.utils.setupenv import get_required_env_value
 from backend.utils.tmdb.common import Provider, PaymentTypes
 import logging
 
@@ -21,26 +21,21 @@ def initialize_analyst_model():
     Initialize model once.
     Called during graph creation to avoid repeated initialization.
     """
-    model_name = "gemini-2.5-flash"
-    analystmodel = ChatOpenAI(
-        openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
-        openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
-        model=model_name,
-        temperature=0.3,     
-        max_completion_tokens=2048,          # Genug für Analyse + Folgefragen
-        top_p=0.9,               # Fokus
-        frequency_penalty=0.05,   # Wenig Wiederholungen
-        streaming=False        
-        )
-    
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+    except ImportError as exc:
+        raise RuntimeError(
+            "Google Gemini dependencies are missing. Install langchain-google-genai."
+        ) from exc
 
-    # Initialize our LLM
-    #gpt4omini_model = ChatOpenAI(   
-    #    api_key= os.getenv("OPENAI_API_KEY"),
-    #    temperature=0.3,
-    #    model="gpt-4o-mini"
-        # todo maxtoken
-    #)
+    model_name = os.getenv("GOOGLE_MODEL_ANALYST", "gemini-2.5-flash")
+    analystmodel = ChatGoogleGenerativeAI(
+        model=model_name,
+        google_api_key=get_required_env_value("GOOGLE_API_KEY"),
+        temperature=0.3,     
+        max_output_tokens=2048,          # Genug für Analyse + Folgefragen
+        top_p=0.9,               # Fokus
+    )
     print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
     return analystmodel    
 
@@ -49,45 +44,22 @@ def initialize_research_model():
     Initialize model once.
     Called during graph creation to avoid repeated initialization.
     """
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+    except ImportError as exc:
+        raise RuntimeError(
+            "Google Gemini dependencies are missing. Install langchain-google-genai."
+        ) from exc
 
-    model_name = "claude-3-7-sonnet"
-    research_model = ChatOpenAI(
-       openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
-       openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
-       model=model_name,
-       temperature=0.0,          # 0 für Claude: Deterministisch bei Tools (Docs empfehlen)[web:97][web:98]
-       max_completion_tokens=10000,          # Hoch für Tavily-Results + Ranking-Logik
-       top_p=0.95,               # Etwas flexibler für kreative Queries
-       frequency_penalty=0.1,    # Vermeidet Loop-Wiederholungen
-       streaming=False
-   )
-    
-    # model_name = "gemini-2.5-pro"  # Oder "gemini-2.5-pro-exp" falls verfügbar
-    # research_model = ChatOpenAI(
-    #     openai_api_key=os.getenv('TSYSTEMS_API_KEY'), 
-    #     openai_api_base=os.getenv('TSYSTEMS_BASE_URL'),
-    #     model=model_name,
-    #     temperature=0.1,              # Low: Präzise Tool-Queries (0.0–0.2 ideal)[web:105][web:149]
-    #     max_completion_tokens=4096,   # Output-Limit (Gemini: bis 8k+)[web:144]
-    #     top_p=0.95,                   # Nucleus-Sampling für Fokus (0.9–1.0)[web:146]
-    #     #top_k=40,                     # Top-40 Tokens (reduziert Randomness)[web:144]
-    #     frequency_penalty=0.1,        # Weniger Wiederholungen in Loops
-    #     presence_penalty=0.0,         # Neutral für Research
-    #     max_retries=2,                # Retry bei Fehlern
-    #     streaming=False
-    # )        
-        
-    
+    model_name = os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash")
+    research_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        google_api_key=get_required_env_value("GOOGLE_API_KEY"),
+        temperature=0.0,
+        max_output_tokens=10000,
+        top_p=0.95,
+    )
 
-    # Initialize our LLM
-    #gpt41_model = ChatOpenAI(   
-    #    api_key= os.getenv("OPENAI_API_KEY"),
-    #    temperature=0.3,
-    #    model="gpt-4.1",
-    #    max_tokens=10000
-    
-        # todo maxtoken
-    #)
     print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
     return research_model    
     
@@ -869,5 +841,3 @@ def draw_graph(graph) -> None:
     except Exception:
         # This requires some extra dependencies and is optional
         pass
-
-

@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import Mock, patch
 from backend.tools import (
     filter_streaming_providers,
-    internet_search_serper,
+    internet_search_google,
     process_content,
 )
 
@@ -42,7 +42,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': ['Ghost in the Shell', 'Akira'],
             'userstreamingproviders': ['Amazon Prime'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         # Assertions
@@ -79,7 +79,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': ['Ghost in the Shell', 'Akira'],
             'userstreamingproviders': ['Amazon Prime'],
-            'paymenttype': ['free']
+            'paymenttypes': ['free']
         })
         
         # Assertions
@@ -106,7 +106,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': ['Blade Runner 2049'],
             'userstreamingproviders': ['Apple TV+', 'Amazon Prime'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         assert result['found_count'] == 1
@@ -130,7 +130,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': ['Obscure Film'],
             'userstreamingproviders': ['Netflix', 'Disney Plus'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         assert result['found_count'] == 0
@@ -170,7 +170,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': ['Available Film', 'Unavailable Film', 'Rent Only Film'],
             'userstreamingproviders': ['Netflix', 'Apple TV+'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         assert result['found_count'] == 2
@@ -186,7 +186,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': [],
             'userstreamingproviders': ['Netflix'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         assert result['found_count'] == 0
@@ -214,7 +214,7 @@ class TestFilterStreamingProviders:
         result = filter_streaming_providers.invoke({
             'titleList': title_list,
             'userstreamingproviders': ['Netflix'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         # Should find 30 titles (every even number)
@@ -243,7 +243,7 @@ class TestFilterStreamingProviders:
         filter_streaming_providers.invoke({
             'titleList': [f'Film {i}' for i in range(15)],
             'userstreamingproviders': ['Netflix'],
-            'paymenttype': ['free', 'rent']
+            'paymenttypes': ['free', 'rent']
         })
         
         # Check warning in output
@@ -252,36 +252,34 @@ class TestFilterStreamingProviders:
         assert '15 titles' in captured.out
 
 
-class TestInternetSearchSerper:
-    """Tests for internet_search_serper tool"""
+class TestInternetSearchGoogle:
+    """Tests for internet_search_google tool"""
     
-    @patch('backend.tools.GoogleSerperAPIWrapper')
-    def test_search_returns_results(self, mock_wrapper_class):
+    @patch('backend.tools._run_google_grounded_search')
+    def test_search_returns_compact_answer(self, mock_grounded_search):
         """Test successful search with results"""
-        # Setup mock
-        mock_wrapper = Mock()
-        mock_wrapper.run.return_value = "Search results for cyberpunk films"
-        mock_wrapper_class.return_value = mock_wrapper
+        mock_response = Mock(text="Search results for cyberpunk films", candidates=[])
+        mock_grounded_search.return_value = mock_response
         
-        # Call the tool
-        result = internet_search_serper.invoke({'query': 'cyberpunk films'})
+        result = internet_search_google.invoke({'query': 'cyberpunk films'})
         
-        # Assertions
-        assert result == "Search results for cyberpunk films"
-        mock_wrapper.run.assert_called_once_with('cyberpunk films')
+        assert result["query"] == "cyberpunk films"
+        assert result["answer"] == "Search results for cyberpunk films"
+        assert result["results"] == []
+        mock_grounded_search.assert_called_once_with("cyberpunk films")
     
-    @patch('backend.tools.GoogleSerperAPIWrapper')
-    def test_search_with_complex_query(self, mock_wrapper_class):
+    @patch('backend.tools._run_google_grounded_search')
+    def test_search_with_complex_query(self, mock_grounded_search):
         """Test search with complex query string"""
-        mock_wrapper = Mock()
-        mock_wrapper.run.return_value = "Complex search results"
-        mock_wrapper_class.return_value = mock_wrapper
+        mock_response = Mock(text="Complex search results", candidates=[])
+        mock_grounded_search.return_value = mock_response
         
         query = "best cyberpunk anime films 2020-2024 dystopian"
-        result = internet_search_serper.invoke({'query': query})
+        result = internet_search_google.invoke({'query': query})
         
-        assert result == "Complex search results"
-        mock_wrapper.run.assert_called_once_with(query)
+        assert result["query"] == query
+        assert result["answer"] == "Complex search results"
+        mock_grounded_search.assert_called_once_with(query)
 
 
 class TestProcessContent:

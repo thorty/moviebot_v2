@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import os
+import json
 from typing import Any
 
 import jwt
@@ -133,6 +134,37 @@ def reset_graph_thread_state(thread_id: str) -> None:
         pass
 
 
+def stringify_message_content(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+                elif item:
+                    parts.append(json.dumps(item, ensure_ascii=False))
+            elif item is not None:
+                parts.append(str(item))
+        return "\n".join(part.strip() for part in parts if part and part.strip())
+
+    if isinstance(content, dict):
+        text = content.get("text")
+        if isinstance(text, str):
+            return text
+        return json.dumps(content, ensure_ascii=False)
+
+    if content is None:
+        return ""
+
+    return str(content)
+
+
 def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -> str:
     app_graph = get_graph_app()
 
@@ -163,7 +195,7 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
     final_messages = result.get("messages", [])
     for msg in reversed(final_messages):
         if hasattr(msg, "type") and msg.type == "ai" and getattr(msg, "content", ""):
-            return msg.content
+            return stringify_message_content(msg.content)
     return ""
 
 

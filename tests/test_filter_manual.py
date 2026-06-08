@@ -6,10 +6,14 @@ Run with: python test_filter_manual.py
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add parent directory to path for backend module import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.tools import filter_streaming_providers
+
+pytest.skip("Manual TMDB smoke checks; run directly when needed.", allow_module_level=True)
 
 
 def test_cyberpunk_anime_filter():
@@ -77,7 +81,7 @@ def test_tron():
     paymenttypes = ['free', 'rent']
     
     print("=" * 80)
-    print("TESTING FILTER_STREAMING_PROVIDERS - MIXED (Movies + TV)")Es 
+    print("TESTING FILTER_STREAMING_PROVIDERS - MIXED (Movies + TV)")
     print("=" * 80)
     print(f"\nTotal titles to check: {len(titles)}")
     print(f"Streaming providers: {', '.join(userstreamingproviders)}")

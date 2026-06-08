@@ -8,8 +8,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_PATH = PROJECT_ROOT / ".env"
 
 REQUIRED_ENV_GROUPS: dict[str, list[str]] = {
-    "core": ["OPENAI_API_KEY", "TMDB_BEARER"],
-    "search": ["TAVILY_API_KEY"],
+    "core": ["GOOGLE_API_KEY", "TMDB_BEARER"],
+    "search": ["GOOGLE_API_KEY"],
     "supabase": ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_JWT_SECRET"],
     "app": ["BACKEND_API_URL", "FRONTEND_WEB_URL"],
 }
@@ -83,4 +83,3 @@ def enable_langsmith() -> None:
 
     os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING", "true")
     os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "moviebot")
-

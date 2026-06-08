@@ -9,10 +9,14 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: OPENAI_API_KEY
+      - key: GOOGLE_API_KEY
         sync: false
-      - key: TAVILY_API_KEY
-        sync: false
+      - key: GOOGLE_MODEL_ANALYST
+        value: gemini-2.5-flash
+      - key: GOOGLE_MODEL_RESEARCHER
+        value: gemini-2.5-flash
+      - key: GOOGLE_SEARCH_MODEL
+        value: gemini-2.5-flash
       - key: TMDB_BEARER
         sync: false
       - key: SUPABASE_URL

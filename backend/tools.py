@@ -3,20 +3,46 @@ import os
 import sys
 from typing import Any, Dict
 from bs4 import BeautifulSoup
-from tavily import TavilyClient
-from duckduckgo_search import DDGS
 from langchain_core.tools import tool
+from pydantic import BaseModel, Field, field_validator
 import requests # Import the tool decorator again
 sys.path.append('./utils')  # Add the 'utils' directory to the Python path
 from backend.utils.helper import choose_streaming_providers, get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
-from langchain_community.utilities import GoogleSerperAPIWrapper
-from backend.utils.setupenv import load_environment
+from backend.utils.setupenv import get_required_env_value, load_environment
 
-load_environment(override=True)
+load_environment()
 
-TAVILY_API_KEY = os.getenv('TAVILY_API_KEY')
-SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
-TAVILY_SNIPPET_MAX_CHARS = 280
+GOOGLE_SEARCH_MODEL = os.getenv("GOOGLE_SEARCH_MODEL", os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash"))
+SEARCH_SNIPPET_MAX_CHARS = 280
+
+
+class TitleInfo(BaseModel):
+    title: str = Field(description="Movie or TV show title.")
+    media_type: str = Field(default="", description="Either 'movie' or 'tv'.")
+
+
+class FilterStreamingProvidersArgs(BaseModel):
+    titleList: list[TitleInfo] = Field(
+        description="Candidate titles to check for streaming availability."
+    )
+    userstreamingproviders: list[str] = Field(
+        description="The user's preferred streaming providers."
+    )
+    paymenttypes: list[str] = Field(
+        description="The user's preferred payment types, such as free or rent."
+    )
+
+    @field_validator("titleList", mode="before")
+    @classmethod
+    def normalize_title_list(cls, value: Any) -> Any:
+        if not isinstance(value, list):
+            return value
+        return [
+            {"title": item, "media_type": ""}
+            if isinstance(item, str)
+            else item
+            for item in value
+        ]
 
 
 def _build_title_key(title_info: Any) -> tuple[str, str]:
@@ -44,30 +70,57 @@ def _truncate_text(value: Any, max_chars: int) -> str:
     return text[: max_chars - 3].rstrip() + "..."
 
 
-def _compact_tavily_response(response: Dict[str, Any]) -> Dict[str, Any]:
-    compact_results = []
+def _extract_google_grounding_sources(response: Any) -> list[dict[str, str]]:
+    """Extract a Tavily-like compact source list from Gemini grounding metadata."""
+    sources: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
 
-    for item in response.get("results", []) or []:
-        compact_results.append(
-            {
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "content": _truncate_text(item.get("content", ""), TAVILY_SNIPPET_MAX_CHARS),
-                "score": item.get("score"),
-            }
-        )
+    candidates = getattr(response, "candidates", None) or []
+    for candidate in candidates:
+        grounding_metadata = getattr(candidate, "grounding_metadata", None)
+        grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None) or []
+        for chunk in grounding_chunks:
+            web_chunk = getattr(chunk, "web", None)
+            if web_chunk is None:
+                continue
 
-    return {
-        "query": response.get("query"),
-        "follow_up_questions": response.get("follow_up_questions"),
-        "answer": response.get("answer"),
-        "results": compact_results,
-        "response_time": response.get("response_time"),
-        "request_id": response.get("request_id"),
-    }
+            url = str(getattr(web_chunk, "uri", "") or "").strip()
+            if not url or url in seen_urls:
+                continue
 
-@tool
-def filter_streaming_providers(titleList: list, userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
+            seen_urls.add(url)
+            sources.append(
+                {
+                    "title": str(getattr(web_chunk, "title", "") or ""),
+                    "url": url,
+                    "content": "",
+                }
+            )
+
+    return sources
+
+
+def _run_google_grounded_search(query: str) -> Any:
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError as exc:
+        raise RuntimeError(
+            "Google Gemini dependencies are missing. Install google-genai and langchain-google-genai."
+        ) from exc
+
+    client = genai.Client(api_key=get_required_env_value("GOOGLE_API_KEY"))
+    return client.models.generate_content(
+        model=GOOGLE_SEARCH_MODEL,
+        contents=query,
+        config=types.GenerateContentConfig(
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+            temperature=0.2,
+        ),
+    )
+
+@tool(args_schema=FilterStreamingProvidersArgs)
+def filter_streaming_providers(titleList: list[TitleInfo], userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
     """Filters the streaming providers based on the user's preferences.
     Optimized to handle large lists (50-100+ titles) for better discovery.
     
@@ -98,7 +151,12 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
     # Deduplicate incoming titles before TMDB calls to avoid redundant lookups/results
     seen_input_keys = set()
     unique_title_list = []
-    for title_info in titleList:
+    normalized_title_list = [
+        title_info.model_dump() if isinstance(title_info, TitleInfo) else title_info
+        for title_info in titleList
+    ]
+
+    for title_info in normalized_title_list:
         key = _build_title_key(title_info)
         if not key[0]:
             continue
@@ -107,14 +165,14 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
         seen_input_keys.add(key)
         unique_title_list.append(title_info)
 
-    removed_input_duplicates = len(titleList) - len(unique_title_list)
+    removed_input_duplicates = len(normalized_title_list) - len(unique_title_list)
     if removed_input_duplicates > 0:
         print(f"[TOOL] Removed {removed_input_duplicates} duplicate title(s) from input")
 
     print(f"[TOOL] Choosing streaming providers based on payment types: {paymenttypes}")
     # choose streeming providers based on properties
     userstreamingproviders = choose_streaming_providers(original_userstreamingproviders, paymenttypes)
-    print(f"[TOOL] filter_streaming_providers called: {len(titleList)} titles, providers: {userstreamingproviders}")
+    print(f"[TOOL] filter_streaming_providers called: {len(normalized_title_list)} titles, providers: {userstreamingproviders}")
     
     # Warnung wenn zu wenige Titel
     if len(unique_title_list) < 30:
@@ -173,20 +231,6 @@ def filter_streaming_providers(titleList: list, userstreamingproviders: list[str
     
     return result
 
-@tool
-def internet_search_serper(query: str) -> str:
-    """Searches the internet.
-    
-    Args: 
-        query (str): Mandatory search query you want to use to search the internet"
-    """    
-    search_tool = GoogleSerperAPIWrapper(api_key=SERPER_API_KEY, max_results=5)  # Use Serper API for search
-    results = search_tool.run(query)    
-    
-    # Log the raw results for debugging purposes
-    print("Raw results:", results)
-    return results
-
 @tool("process_content", return_direct=False)
 def process_content(url: str) -> str:
 
@@ -196,38 +240,35 @@ def process_content(url: str) -> str:
     soup = BeautifulSoup(response.content, 'html.parser')
     return soup.get_text()
 
-@tool("internet_search_DDGO", return_direct=False)
-def internet_search_DDGO(query: str) -> str:
-
-  """Searches the internet using DuckDuckGo."""
-
-  with DDGS() as ddgs:
-    results = [r for r in ddgs.text(query, max_results=5)]
-    return results if results else "No results found."
-
-@tool("internet_search_tavily", return_direct=False)
-def internet_search_tavily(query: str) -> Dict[str, Any]:
-    """Searches the internet using Tavily API.
+@tool("internet_search_google", return_direct=False)
+def internet_search_google(query: str) -> Dict[str, Any]:
+    """Searches the internet using Gemini Grounding with Google Search.
     
     Args:
         query (str): The search query.
     
     Returns:
-        The search results from Tavily API to be processed further by llm model
+        A compact answer and source list to be processed further by the LLM.
     """
-    
-    client = TavilyClient(api_key=TAVILY_API_KEY)
-    response = client.search(
-        query=query,
-        search_depth="advanced",
-        country="germany"
-    )
-    return _compact_tavily_response(response)
+
+    response = _run_google_grounded_search(query)
+
+    answer = getattr(response, "text", "") or ""
+    return {
+        "query": query,
+        "answer": _truncate_text(answer, 1200),
+        "results": [
+            {
+                **source,
+                "content": _truncate_text(source.get("content", ""), SEARCH_SNIPPET_MAX_CHARS),
+            }
+            for source in _extract_google_grounding_sources(response)
+        ],
+    }
 
 
 def get_search_tools():
-    return [internet_search_serper, process_content]   # Uncomment this and comment the line below to use Tavily instead of DuckDuckGo Search. 
-    #return [internet_search_DDGO, process_content]  # Uncomment this and comment the line above to use DuckDuckGo Search instead of Tavily.
+    return [internet_search_google, process_content]
     
 def get_streamingprovider_tools():
     return [filter_streaming_providers]  # This function returns a list of tools related to streaming providers.
@@ -236,14 +277,9 @@ def get_streamingprovider_tools():
 def get_tools_for_providers(userstreamingproviders: list[str]):
     """Return only the tools relevant for the current provider selection."""
     if _is_mediatheken_mode(userstreamingproviders):
-        return [internet_search_tavily]
+        return [internet_search_google]
     return get_all_tools()
 
 def get_all_tools():
     """Returns all available tools."""
-    #return [internet_search_serper, process_content, filter_streaming_providers]  # Add more tools as needed.
-    return [internet_search_tavily, filter_streaming_providers]  # Add more tools as needed.
-
-
-
-
+    return [internet_search_google, filter_streaming_providers]
