@@ -26,7 +26,6 @@ class TestFilterStreamingProviders:
                 'overview': 'A cyborg policewoman...',
                 'poster_path': '/ghost.jpg',
                 'poster_url': 'https://image.tmdb.org/t/p/w342/ghost.jpg',
-                'watch_link': 'https://www.themoviedb.org/movie/9323/watch?locale=DE',
                 'release_date': '1995-11-18',
                 'id': 9323
             },
@@ -55,7 +54,6 @@ class TestFilterStreamingProviders:
         assert result['available_titles'][0]['title'] == 'Ghost in the Shell'
         assert result['available_titles'][0]['poster_path'] == '/ghost.jpg'
         assert result['available_titles'][0]['poster_url'] == 'https://image.tmdb.org/t/p/w342/ghost.jpg'
-        assert result['available_titles'][0]['watch_link'] == 'https://www.themoviedb.org/movie/9323/watch?locale=DE'
         
     @patch('backend.tools.get_filtered_titles_tmdb')
     def test_filter_with_only_flatproviders_available(self, mock_tmdb):
