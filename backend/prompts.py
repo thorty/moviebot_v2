@@ -75,6 +75,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             
             ![Titel Cover](poster_url from filter_streaming_providers, only if present)
             🎬 **[Titel] ([Jahr])** [Serie/Film]
+            **TMDB-Bewertung:** [vote_average]/10 ([vote_count] Stimmen) (only if vote_average > 0)
             *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
             
             **Verfügbar auf:**
@@ -98,6 +99,12 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
               `![Titel Cover](poster_url)`
             - Use only `poster_url` values returned by the tool.
             - If `poster_url` is empty or missing, omit the image for that title.
+
+            **Rating Display Rule:**
+            - If a recommended title has `vote_average` > 0 in the `filter_streaming_providers` result, show it as:
+              `**TMDB-Bewertung:** X.X/10 (N Stimmen)`
+            - Never call this an IMDb rating. TMDB provides TMDB votes, not IMDb ratings.
+            - If `vote_average` is 0 or missing, omit the rating line.
             
             **Flatrate Preference Rule:**
             - **PRIORITIZE titles available in Flatrate (🟢) over rental/purchase options**
@@ -209,6 +216,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         ![Titel Cover](poster_url from filter_streaming_providers, only if present)
         🎬 **[Titel] ([Jahr])**
+        **TMDB-Bewertung:** [vote_average]/10 ([vote_count] Stimmen) (only if vote_average > 0)
         *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
 
         **Verfügbar auf:**
@@ -239,6 +247,12 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
           `![Titel Cover](poster_url)`
         - Use only `poster_url` values returned by the tool.
         - If `poster_url` is empty or missing, omit the image for that title.
+
+        **Rating Display Rule:**
+        - If a recommended title has `vote_average` > 0 in the `filter_streaming_providers` result, show it as:
+          `**TMDB-Bewertung:** X.X/10 (N Stimmen)`
+        - Never call this an IMDb rating. TMDB provides TMDB votes, not IMDb ratings.
+        - If `vote_average` is 0 or missing, omit the rating line.
 
         ### Other Critical Rules ###
         - NEVER show your research process or phases to the user

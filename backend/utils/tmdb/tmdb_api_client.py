@@ -325,6 +325,8 @@ async def _create_basic_movie_data_async(title, media_type="movie", append_respo
             "poster_path": movie.get("poster_path", ""),
             "poster_url": build_tmdb_poster_url(movie.get("poster_path", "")),
             "release_date": movie.get("release_date", ""),
+            "vote_average": movie.get("vote_average", 0),
+            "vote_count": movie.get("vote_count", 0),
             "id": movie_id,
             "media_type": media_type,
             "_recommendations_payload": get_recommendation_payload(movie),
@@ -399,6 +401,8 @@ async def _parse_movies_from_search_async(results, media_type="movie", client=No
             "poster_path": movie.get("poster_path", ""),
             "poster_url": build_tmdb_poster_url(movie.get("poster_path", "")),
             "release_date": movie.get("release_date", ""),
+            "vote_average": movie.get("vote_average", 0),
+            "vote_count": movie.get("vote_count", 0),
             "id": movie_id,
             "media_type": media_type,
         }

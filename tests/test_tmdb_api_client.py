@@ -147,6 +147,8 @@ def test_create_basic_movie_data_keeps_appended_recommendations(monkeypatch):
         "overview": "Seed overview",
         "poster_path": "/seed-poster.jpg",
         "release_date": "2024-01-01",
+        "vote_average": 7.8,
+        "vote_count": 123,
     }
 
     async def _fake_find_movie_basic_async(*args, **kwargs):
@@ -167,6 +169,8 @@ def test_create_basic_movie_data_keeps_appended_recommendations(monkeypatch):
     assert result["flatproviders"] == ["Netflix"]
     assert result["poster_path"] == "/seed-poster.jpg"
     assert result["poster_url"] == "https://image.tmdb.org/t/p/w342/seed-poster.jpg"
+    assert result["vote_average"] == 7.8
+    assert result["vote_count"] == 123
     assert result["_recommendations_payload"] == movie["recommendations"]
 
 
