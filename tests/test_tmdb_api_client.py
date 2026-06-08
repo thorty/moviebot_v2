@@ -145,6 +145,7 @@ def test_create_basic_movie_data_keeps_appended_recommendations(monkeypatch):
             "results": [{"id": 99, "title": "Recommended Movie", "overview": "Rec", "release_date": "2025-01-01"}]
         },
         "overview": "Seed overview",
+        "poster_path": "/seed-poster.jpg",
         "release_date": "2024-01-01",
     }
 
@@ -164,6 +165,8 @@ def test_create_basic_movie_data_keeps_appended_recommendations(monkeypatch):
 
     assert result["title"] == "Seed Movie"
     assert result["flatproviders"] == ["Netflix"]
+    assert result["poster_path"] == "/seed-poster.jpg"
+    assert result["poster_url"] == "https://image.tmdb.org/t/p/w342/seed-poster.jpg"
     assert result["_recommendations_payload"] == movie["recommendations"]
 
 

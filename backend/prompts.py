@@ -73,6 +73,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             
             *[kurzes intro mit den nutzerinteressen]*
             
+            ![Titel Cover](poster_url from filter_streaming_providers, only if present)
             🎬 **[Titel] ([Jahr])** [Serie/Film]
             *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
             
@@ -91,6 +92,12 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             - NEVER mention any provider outside this allowed set: {', '.join(userstreamingproviders)}
             - If a title has no matching provider in the tool result, skip the title.
             - If uncertain, do not output the title.
+
+            **Poster Display Rule:**
+            - If a recommended title has a `poster_url` in the `filter_streaming_providers` result, place one Markdown image immediately before the title line:
+              `![Titel Cover](poster_url)`
+            - Use only `poster_url` values returned by the tool.
+            - If `poster_url` is empty or missing, omit the image for that title.
             
             **Flatrate Preference Rule:**
             - **PRIORITIZE titles available in Flatrate (🟢) over rental/purchase options**
@@ -200,6 +207,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
 
         *[kurzes intro mit den nutzerinteressen]*
 
+        ![Titel Cover](poster_url from filter_streaming_providers, only if present)
         🎬 **[Titel] ([Jahr])**
         *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
 
@@ -225,6 +233,12 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         - If not in Flatrate, show cheapest rental/purchase option.
         - If not available at all: skip the title.
         - NEVER mention other streaming providers.
+
+        **Poster Display Rule:**
+        - If a recommended title has a `poster_url` in the `filter_streaming_providers` result, place one Markdown image immediately before the title line:
+          `![Titel Cover](poster_url)`
+        - Use only `poster_url` values returned by the tool.
+        - If `poster_url` is empty or missing, omit the image for that title.
 
         ### Other Critical Rules ###
         - NEVER show your research process or phases to the user

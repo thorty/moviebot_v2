@@ -24,6 +24,8 @@ TMDB_MAX_RETRIES = max(0, int(os.getenv("TMDB_MAX_RETRIES", "3")))
 TMDB_RETRY_BACKOFF_SECONDS = max(0.0, float(os.getenv("TMDB_RETRY_BACKOFF_SECONDS", "1.0")))
 TMDB_REQUEST_TIMEOUT_SECONDS = max(1.0, float(os.getenv("TMDB_REQUEST_TIMEOUT_SECONDS", "10.0")))
 TMDB_RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+TMDB_IMAGE_BASE_URL = os.getenv("TMDB_IMAGE_BASE_URL", "https://image.tmdb.org/t/p")
+TMDB_POSTER_SIZE = os.getenv("TMDB_POSTER_SIZE", "w342")
 
 
 def normalize_media_item(item, media_type="movie"):
@@ -38,6 +40,17 @@ def normalize_media_item(item, media_type="movie"):
         item["release_date"] = item["first_air_date"]
 
     return item
+
+
+def build_tmdb_poster_url(poster_path: str | None) -> str:
+    path = str(poster_path or "").strip()
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return f"{TMDB_IMAGE_BASE_URL}/{TMDB_POSTER_SIZE}{path}"
 
 
 def _extract_title_input(item):
@@ -277,6 +290,7 @@ async def _create_movie_data_async(title, media_type="movie", client=None):
             "overview": movie.get("overview", ""),
             "popularity": movie.get("popularity", 0),
             "poster_path": movie.get("poster_path", ""),
+            "poster_url": build_tmdb_poster_url(movie.get("poster_path", "")),
             "release_date": movie.get("release_date", ""),
             "runtime": movie.get("runtime", 0),
             "revenue": movie.get("revenue", 0),
@@ -308,6 +322,8 @@ async def _create_basic_movie_data_async(title, media_type="movie", append_respo
             "flatproviders": flatproviders,
             "rentproviders": rentproviders,
             "overview": movie.get("overview", ""),
+            "poster_path": movie.get("poster_path", ""),
+            "poster_url": build_tmdb_poster_url(movie.get("poster_path", "")),
             "release_date": movie.get("release_date", ""),
             "id": movie_id,
             "media_type": media_type,
@@ -380,8 +396,11 @@ async def _parse_movies_from_search_async(results, media_type="movie", client=No
             "flatproviders": flatproviders,
             "rentproviders": rentproviders,
             "overview": movie.get("overview", ""),
+            "poster_path": movie.get("poster_path", ""),
+            "poster_url": build_tmdb_poster_url(movie.get("poster_path", "")),
             "release_date": movie.get("release_date", ""),
             "id": movie_id,
+            "media_type": media_type,
         }
 
     return await _collect_parallel_results_async(results.get("results", []), build_movie)

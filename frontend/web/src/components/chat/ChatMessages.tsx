@@ -87,7 +87,20 @@ export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesP
                   <p>{message.content}</p>
                 ) : (
                   <div className="prose prose-invert max-w-none prose-p:my-3 prose-p:text-foreground prose-li:my-1 prose-li:text-foreground prose-ul:my-3 prose-ol:my-3 prose-headings:my-4 prose-headings:text-foreground prose-strong:text-foreground prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:pl-1 prose-li:marker:text-muted-foreground [&_ul_ul]:my-2 [&_ol_ol]:my-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <ReactMarkdown
+                      components={{
+                        img: ({ alt, src }) => (
+                          <img
+                            alt={alt ?? ""}
+                            src={src ?? ""}
+                            loading="lazy"
+                            className="my-3 aspect-[2/3] w-28 rounded-md object-cover shadow-sm sm:w-32"
+                          />
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
                   </div>
                 )}
               </div>

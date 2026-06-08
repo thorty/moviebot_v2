@@ -68,6 +68,11 @@ class UserFilterPreferencesResponse(BaseModel):
     paymenttypes: list[str]
 
 
+PROVIDER_QUOTA_ERROR_MESSAGE = (
+    "Das KI-Modell-Limit ist gerade erreicht. Bitte warte kurz und versuche es dann erneut."
+)
+
+
 @app.on_event("startup")
 def startup_load_environment() -> None:
     load_environment()
@@ -165,6 +170,18 @@ def stringify_message_content(content: Any) -> str:
     return str(content)
 
 
+def is_provider_quota_error(exc: Exception) -> bool:
+    error_text = str(exc)
+    return (
+        "429" in error_text
+        and (
+            "RESOURCE_EXHAUSTED" in error_text
+            or "quota" in error_text.lower()
+            or "rate-limit" in error_text.lower()
+        )
+    )
+
+
 def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -> str:
     app_graph = get_graph_app()
 
@@ -258,7 +275,15 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
         metadata={"source": "api"},
     )
 
-    reply = invoke_user_chat(user_id=user_id, conversation_id=conversation_id, payload=payload)
+    try:
+        reply = invoke_user_chat(user_id=user_id, conversation_id=conversation_id, payload=payload)
+    except Exception as exc:
+        if is_provider_quota_error(exc):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=PROVIDER_QUOTA_ERROR_MESSAGE,
+            ) from exc
+        raise
 
     append_message_log(
         conversation_id=conversation_id,

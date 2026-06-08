@@ -214,6 +214,38 @@ def test_chat_appends_user_and_assistant_messages_in_order(monkeypatch) -> None:
     assert appended_roles == ["user", "assistant"]
 
 
+def test_chat_returns_429_for_provider_quota_error(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+    monkeypatch.setattr("main.append_message_log", lambda **kwargs: {"id": 1, **kwargs})
+    monkeypatch.setattr(
+        "main.get_or_create_active_conversation",
+        lambda user_id, access_token: {"id": "conv-quota", "user_id": user_id, "status": "active"},
+    )
+
+    def fake_invoke_user_chat(user_id, conversation_id, payload):
+        raise RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded for gemini-2.5-flash")
+
+    monkeypatch.setattr("main.invoke_user_chat", fake_invoke_user_chat)
+
+    payload = {
+        "sub": "quota-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Hi"},
+    )
+
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Das KI-Modell-Limit ist gerade erreicht. Bitte warte kurz und versuche es dann erneut."
+
+
 def test_invoke_user_chat_stringifies_structured_ai_content(monkeypatch) -> None:
     class FakeGraph:
         def invoke(self, graph_input, config):
