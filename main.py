@@ -16,7 +16,7 @@ from backend.persistence.user_filter_preferences import (
     get_user_filter_preferences,
     upsert_user_filter_preferences,
 )
-from backend.utils.helper import choose_streaming_providers, verify_and_decode_supabase_jwt
+from backend.utils.helper import choose_streaming_providers, split_streaming_and_mediatheken, verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
 
 
@@ -45,6 +45,7 @@ class ChatRequest(BaseModel):
     message: str
     userstreamingproviders: list[str] = ["Disney Plus"]
     paymenttypes: list[str] = ["flatrate", "rent"]
+    include_mediatheken: bool = False
     thread_id: str | None = None
 
 
@@ -58,6 +59,7 @@ class UserFilterPreferencesPayload(BaseModel):
     source: str
     providers: list[str]
     paymenttypes: list[str]
+    include_mediatheken: bool = False
 
 
 class UserFilterPreferencesResponse(BaseModel):
@@ -66,6 +68,7 @@ class UserFilterPreferencesResponse(BaseModel):
     source: str
     providers: list[str]
     paymenttypes: list[str]
+    include_mediatheken: bool = False
 
 
 PROVIDER_QUOTA_ERROR_MESSAGE = (
@@ -192,9 +195,13 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         normalized_paymenttypes = ["free", "rent"]
 
     normalized_user_providers = [provider.strip() for provider in payload.userstreamingproviders if provider and provider.strip()]
-    effective_providers = choose_streaming_providers(normalized_user_providers, normalized_paymenttypes)
+    streaming_provider_candidates, legacy_include_mediatheken = split_streaming_and_mediatheken(normalized_user_providers)
+    include_mediatheken = bool(payload.include_mediatheken) or legacy_include_mediatheken
+    effective_providers = choose_streaming_providers(streaming_provider_candidates, normalized_paymenttypes)
     if not effective_providers:
-        effective_providers = normalized_user_providers
+        effective_providers = streaming_provider_candidates
+    if include_mediatheken and not effective_providers:
+        normalized_paymenttypes = ["free"]
 
     graph_input = {
         "messages": [HumanMessage(content=payload.message)],
@@ -202,6 +209,7 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         "conversation_id": conversation_id,
         "userstreamingproviders": effective_providers,
         "paymenttypes": normalized_paymenttypes,
+        "include_mediatheken": include_mediatheken,
     }
     config = {
         "configurable": {"thread_id": payload.thread_id or f"conversation:{conversation_id}"},
@@ -225,7 +233,7 @@ def health() -> dict[str, str]:
     }
 
 
-def _normalize_filter_payload(payload: UserFilterPreferencesPayload) -> tuple[str, list[str], list[str]]:
+def _normalize_filter_payload(payload: UserFilterPreferencesPayload) -> tuple[str, list[str], list[str], bool]:
     source = payload.source.strip().lower()
     if source not in {"streaming", "mediathek"}:
         raise HTTPException(
@@ -233,13 +241,15 @@ def _normalize_filter_payload(payload: UserFilterPreferencesPayload) -> tuple[st
             detail="Invalid filter source",
         )
 
-    providers = [provider.strip() for provider in payload.providers if provider and provider.strip()]
+    raw_providers = [provider.strip() for provider in payload.providers if provider and provider.strip()]
+    providers, legacy_include_mediatheken = split_streaming_and_mediatheken(raw_providers)
+    include_mediatheken = bool(payload.include_mediatheken) or legacy_include_mediatheken or source == "mediathek"
     paymenttypes = [payment.strip().lower() for payment in payload.paymenttypes if payment and payment.strip()]
 
     if source == "mediathek":
-        return source, ["Mediatheken"], ["free"]
+        return source, [], ["free"], True
 
-    if not providers:
+    if not providers and not include_mediatheken:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="At least one provider is required for streaming source",
@@ -254,9 +264,9 @@ def _normalize_filter_payload(payload: UserFilterPreferencesPayload) -> tuple[st
 
     normalized_paymenttypes = list(dict.fromkeys(normalized_paymenttypes))
     if not normalized_paymenttypes:
-        normalized_paymenttypes = ["free", "rent"]
+        normalized_paymenttypes = ["free"] if include_mediatheken and not providers else ["free", "rent"]
 
-    return source, providers, normalized_paymenttypes
+    return source, providers, normalized_paymenttypes, include_mediatheken
 
 
 @app.post("/api/v1/chat")
@@ -315,14 +325,17 @@ def get_user_filters(user_claims: dict = Depends(require_user_context)) -> UserF
             source="streaming",
             providers=["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "Magenta TV"],
             paymenttypes=["free", "rent"],
+            include_mediatheken=False,
         )
 
+    source = str(preferences.get("source", "streaming"))
     return UserFilterPreferencesResponse(
         status="ok",
         user_id=user_id,
-        source=str(preferences.get("source", "streaming")),
+        source=source,
         providers=list(preferences.get("providers", []) or []),
         paymenttypes=list(preferences.get("payment_types", []) or []),
+        include_mediatheken=bool(preferences.get("include_mediatheken", source == "mediathek")),
     )
 
 
@@ -334,13 +347,14 @@ def save_user_filters(
     user_id = str(user_claims.get("sub", ""))
     access_token = str(user_claims.get("_access_token", ""))
 
-    source, providers, paymenttypes = _normalize_filter_payload(payload)
+    source, providers, paymenttypes, include_mediatheken = _normalize_filter_payload(payload)
     row = upsert_user_filter_preferences(
         user_id=user_id,
         access_token=access_token,
         source=source,
         providers=providers,
         payment_types=paymenttypes,
+        include_mediatheken=include_mediatheken,
     )
 
     return UserFilterPreferencesResponse(
@@ -349,6 +363,7 @@ def save_user_filters(
         source=str(row.get("source", source)),
         providers=list(row.get("providers", providers) or providers),
         paymenttypes=list(row.get("payment_types", paymenttypes) or paymenttypes),
+        include_mediatheken=bool(row.get("include_mediatheken", include_mediatheken)),
     )
 
 

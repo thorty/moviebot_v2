@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from backend.tools import (
     filter_streaming_providers,
     internet_search_google,
+    search_public_mediatheken,
 )
 
 
@@ -302,6 +303,36 @@ class TestInternetSearchGoogle:
         assert result["results"] == []
         assert result["error"] == "google_search_unavailable"
         assert "503 UNAVAILABLE" in result["error_message"]
+
+
+class TestSearchPublicMediatheken:
+    @patch('backend.tools._run_google_grounded_search')
+    def test_search_adds_public_mediatheken_context(self, mock_grounded_search):
+        mock_response = Mock(text="ARD Mediathek result", candidates=[])
+        mock_grounded_search.return_value = mock_response
+
+        result = search_public_mediatheken.invoke({'query': 'Krimi Serie'})
+
+        assert result["query"] == "Krimi Serie"
+        assert result["answer"] == "ARD Mediathek result"
+        assert result["found_count"] == 1
+        called_query = mock_grounded_search.call_args.args[0]
+        assert "ARD Mediathek" in called_query
+        assert "ZDF Mediathek" in called_query
+        assert "Arte" in called_query
+        assert "3sat" in called_query
+
+    @patch('backend.tools._run_google_grounded_search')
+    def test_search_returns_structured_error_on_failure(self, mock_grounded_search):
+        mock_grounded_search.side_effect = RuntimeError("503 UNAVAILABLE")
+
+        result = search_public_mediatheken.invoke({'query': 'Doku Natur'})
+
+        assert result["query"] == "Doku Natur"
+        assert result["answer"] == ""
+        assert result["results"] == []
+        assert result["found_count"] == 0
+        assert result["error"] == "google_search_unavailable"
 
 
 # Pytest fixtures

@@ -10,7 +10,11 @@ from pydantic import BaseModel, Field, field_validator
 # import requests
 # from bs4 import BeautifulSoup
 sys.path.append('./utils')  # Add the 'utils' directory to the Python path
-from backend.utils.helper import choose_streaming_providers, get_filtered_titles_tmdb  # Import the function to filter titles based on streaming providers
+from backend.utils.helper import (
+    choose_streaming_providers,
+    get_filtered_titles_tmdb,
+    split_streaming_and_mediatheken,
+)
 from backend.utils.setupenv import get_required_env_value, load_environment
 
 load_environment()
@@ -66,7 +70,8 @@ def _build_title_key(title_info: Any) -> tuple[str, str]:
 
 
 def _is_mediatheken_mode(userstreamingproviders: list[str]) -> bool:
-    return any(str(provider).strip().casefold() == "mediatheken" for provider in userstreamingproviders)
+    streaming_providers, include_mediatheken = split_streaming_and_mediatheken(userstreamingproviders)
+    return include_mediatheken and not streaming_providers
 
 
 def _truncate_text(value: Any, max_chars: int) -> str:
@@ -309,6 +314,48 @@ def internet_search_google(query: str) -> Dict[str, Any]:
     }
 
 
+@tool("search_public_mediatheken", return_direct=False)
+def search_public_mediatheken(query: str) -> Dict[str, Any]:
+    """Searches public German media libraries such as ARD, ZDF, Arte, and 3sat."""
+
+    original_query = str(query or "").strip()
+    mediatheken_query = (
+        f"{original_query} ARD Mediathek ZDF Mediathek Arte 3sat verfügbar kostenlos "
+        "öffentlich-rechtlich"
+    ).strip()
+
+    try:
+        response = _run_google_grounded_search(mediatheken_query)
+    except Exception as exc:
+        error_message = str(exc)
+        print(f"[TOOL] Public mediatheken search failed: {error_message}")
+        return {
+            "query": original_query,
+            "search_query": mediatheken_query,
+            "answer": "",
+            "results": [],
+            "found_count": 0,
+            "error": "google_search_unavailable",
+            "error_message": _truncate_text(error_message, 500),
+        }
+
+    sources = [
+        {
+            **source,
+            "content": _truncate_text(source.get("content", ""), SEARCH_SNIPPET_MAX_CHARS),
+        }
+        for source in _extract_google_grounding_sources(response)
+    ]
+    answer = getattr(response, "text", "") or ""
+    return {
+        "query": original_query,
+        "search_query": mediatheken_query,
+        "answer": _truncate_text(answer, 1200),
+        "results": sources,
+        "found_count": len(sources) if sources else (1 if answer else 0),
+    }
+
+
 # Tavily fallback, kept commented for easy future switching:
 # @tool("internet_search_tavily", return_direct=False)
 # def internet_search_tavily(query: str) -> Dict[str, Any]:
@@ -350,14 +397,27 @@ def internet_search_google(query: str) -> Dict[str, Any]:
 
 def get_tools_for_providers(userstreamingproviders: list[str]):
     """Return only the tools relevant for the current provider selection."""
-    if _is_mediatheken_mode(userstreamingproviders):
-        return [internet_search_google]
+    streaming_providers, include_mediatheken = split_streaming_and_mediatheken(userstreamingproviders)
+    return get_tools_for_availability(streaming_providers, include_mediatheken)
+
+
+def get_tools_for_availability(userstreamingproviders: list[str], include_mediatheken: bool):
+    """Return tools for streaming-only, mediathek-only, or combined availability search."""
+    streaming_providers, legacy_include_mediatheken = split_streaming_and_mediatheken(userstreamingproviders)
+    should_include_mediatheken = include_mediatheken or legacy_include_mediatheken
+
+    if should_include_mediatheken and not streaming_providers:
+        return [search_public_mediatheken]
         # Tavily fallback:
         # return [internet_search_tavily]
-    return get_all_tools()
+
+    if should_include_mediatheken:
+        return [internet_search_google, filter_streaming_providers, search_public_mediatheken]
+
+    return [internet_search_google, filter_streaming_providers]
 
 def get_all_tools():
     """Returns all available tools."""
-    return [internet_search_google, filter_streaming_providers]
+    return [internet_search_google, filter_streaming_providers, search_public_mediatheken]
     # Tavily fallback:
     # return [internet_search_tavily, filter_streaming_providers]

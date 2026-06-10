@@ -6,6 +6,7 @@ export type ChatRequestPayload = {
   message: string
   userstreamingproviders: string[]
   paymenttypes: string[]
+  include_mediatheken: boolean
 }
 
 export type ChatResponsePayload = {
@@ -25,6 +26,7 @@ export type UserFilterPreferencesPayload = {
   source: "streaming" | "mediathek"
   providers: string[]
   paymenttypes: string[]
+  include_mediatheken: boolean
 }
 
 export type UserFilterPreferencesResponse = {
@@ -33,6 +35,7 @@ export type UserFilterPreferencesResponse = {
   source: "streaming" | "mediathek"
   providers: string[]
   paymenttypes: string[]
+  include_mediatheken: boolean
 }
 
 export class ApiHttpError extends Error {

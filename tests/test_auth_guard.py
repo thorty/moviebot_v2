@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from langchain_core.messages import AIMessage
 
-from main import ChatRequest, app, invoke_user_chat
+from main import ChatRequest, UserFilterPreferencesPayload, _normalize_filter_payload, app, invoke_user_chat
 
 
 client = TestClient(app)
@@ -269,6 +269,115 @@ def test_invoke_user_chat_stringifies_structured_ai_content(monkeypatch) -> None
     )
 
     assert reply == "Erste Empfehlung\nZweite Empfehlung"
+
+
+def test_invoke_user_chat_splits_legacy_mediatheken_provider(monkeypatch) -> None:
+    captured: dict = {}
+
+    class FakeGraph:
+        def invoke(self, graph_input, config):
+            captured["graph_input"] = graph_input
+            return {"messages": [AIMessage(content="ok")]}
+
+    monkeypatch.setattr("main.get_graph_app", lambda: FakeGraph())
+
+    reply = invoke_user_chat(
+        user_id="user-1",
+        conversation_id="conv-1",
+        payload=ChatRequest(
+            message="Was soll ich schauen?",
+            userstreamingproviders=["Netflix", "Mediatheken"],
+            paymenttypes=["free"],
+        ),
+    )
+
+    assert reply == "ok"
+    assert captured["graph_input"]["userstreamingproviders"] == ["Netflix"]
+    assert captured["graph_input"]["include_mediatheken"] is True
+
+
+def test_invoke_user_chat_supports_mediatheken_only_legacy_payload(monkeypatch) -> None:
+    captured: dict = {}
+
+    class FakeGraph:
+        def invoke(self, graph_input, config):
+            captured["graph_input"] = graph_input
+            return {"messages": [AIMessage(content="ok")]}
+
+    monkeypatch.setattr("main.get_graph_app", lambda: FakeGraph())
+
+    reply = invoke_user_chat(
+        user_id="user-1",
+        conversation_id="conv-1",
+        payload=ChatRequest(
+            message="Was soll ich schauen?",
+            userstreamingproviders=["Mediatheken"],
+            paymenttypes=["rent"],
+        ),
+    )
+
+    assert reply == "ok"
+    assert captured["graph_input"]["userstreamingproviders"] == []
+    assert captured["graph_input"]["paymenttypes"] == ["free"]
+    assert captured["graph_input"]["include_mediatheken"] is True
+
+
+def test_invoke_user_chat_supports_explicit_include_mediatheken(monkeypatch) -> None:
+    captured: dict = {}
+
+    class FakeGraph:
+        def invoke(self, graph_input, config):
+            captured["graph_input"] = graph_input
+            return {"messages": [AIMessage(content="ok")]}
+
+    monkeypatch.setattr("main.get_graph_app", lambda: FakeGraph())
+
+    reply = invoke_user_chat(
+        user_id="user-1",
+        conversation_id="conv-1",
+        payload=ChatRequest(
+            message="Was soll ich schauen?",
+            userstreamingproviders=["Amazon"],
+            paymenttypes=["free", "rent"],
+            include_mediatheken=True,
+        ),
+    )
+
+    assert reply == "ok"
+    assert "Mediatheken" not in captured["graph_input"]["userstreamingproviders"]
+    assert captured["graph_input"]["userstreamingproviders"] == ["Amazon Prime Video", "Amazon Video"]
+    assert captured["graph_input"]["include_mediatheken"] is True
+
+
+def test_normalize_filter_payload_supports_streaming_plus_mediatheken() -> None:
+    source, providers, paymenttypes, include_mediatheken = _normalize_filter_payload(
+        UserFilterPreferencesPayload(
+            source="streaming",
+            providers=["Netflix", "Mediatheken"],
+            paymenttypes=["free", "rent"],
+            include_mediatheken=False,
+        )
+    )
+
+    assert source == "streaming"
+    assert providers == ["Netflix"]
+    assert paymenttypes == ["free", "rent"]
+    assert include_mediatheken is True
+
+
+def test_normalize_filter_payload_keeps_legacy_mediathek_source_as_mediathek_only() -> None:
+    source, providers, paymenttypes, include_mediatheken = _normalize_filter_payload(
+        UserFilterPreferencesPayload(
+            source="mediathek",
+            providers=["Mediatheken"],
+            paymenttypes=["rent"],
+        )
+    )
+
+    assert source == "mediathek"
+    assert providers == []
+    assert paymenttypes == ["free"]
+    assert include_mediatheken is True
 
 
 def test_start_new_chat_without_token_returns_401() -> None:

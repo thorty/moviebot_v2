@@ -11,7 +11,7 @@ def get_user_filter_preferences(*, user_id: str, access_token: str) -> dict[str,
 
     query = parse.urlencode(
         {
-            "select": "user_id,source,providers,payment_types,updated_at",
+            "select": "user_id,source,providers,payment_types,include_mediatheken,updated_at",
             "user_id": f"eq.{user_id}",
             "limit": "1",
         }
@@ -62,6 +62,7 @@ def upsert_user_filter_preferences(
     source: str,
     providers: list[str],
     payment_types: list[str],
+    include_mediatheken: bool,
 ) -> dict[str, Any]:
     supabase_url = normalize_url_for_runtime(get_required_env_value("SUPABASE_URL"))
     supabase_anon_key = get_required_env_value("SUPABASE_ANON_KEY")
@@ -72,6 +73,7 @@ def upsert_user_filter_preferences(
         "source": source,
         "providers": providers,
         "payment_types": payment_types,
+        "include_mediatheken": include_mediatheken,
     }
     payload = json.dumps(payload_obj).encode("utf-8")
 

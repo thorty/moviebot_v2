@@ -6,6 +6,47 @@ from urllib.parse import urlparse
 from backend.utils.setupenv import get_required_env_value, normalize_url_for_runtime
 
 
+MEDIATHEKEN_SENTINEL = "Mediatheken"
+
+
+def is_mediatheken_provider(provider: str) -> bool:
+  normalized_provider = str(provider or "").strip().casefold()
+  return normalized_provider in {
+      "mediatheken",
+      "mediathek",
+      "ard mediathek",
+      "zdf mediathek",
+      "arte",
+      "arte mediathek",
+      "3sat",
+      "3sat mediathek",
+  }
+
+
+def split_streaming_and_mediatheken(providers: list[str]) -> tuple[list[str], bool]:
+  streaming_providers: list[str] = []
+  seen_streaming: set[str] = set()
+  include_mediatheken = False
+
+  for provider in providers:
+    normalized_provider = str(provider or "").strip()
+    if not normalized_provider:
+      continue
+
+    if is_mediatheken_provider(normalized_provider):
+      include_mediatheken = True
+      continue
+
+    dedupe_key = normalized_provider.casefold()
+    if dedupe_key in seen_streaming:
+      continue
+
+    seen_streaming.add(dedupe_key)
+    streaming_providers.append(normalized_provider)
+
+  return streaming_providers, include_mediatheken
+
+
 def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: list[str]) -> list[str]:
   from backend.utils.tmdb.common import FreeProvider, Provider
 
@@ -69,7 +110,8 @@ def choose_streaming_providers(userstreamingproviders: list[str], paymenttypes: 
   
   filtered_providers = []
   seen = set()
-  for user_provider in userstreamingproviders:
+  streaming_providers, _include_mediatheken = split_streaming_and_mediatheken(userstreamingproviders)
+  for user_provider in streaming_providers:
     for ref_provider in reference_providers:
       if is_match(user_provider, ref_provider) and ref_provider not in seen:
         seen.add(ref_provider)
@@ -188,4 +230,3 @@ def verify_and_decode_supabase_jwt(token: str) -> dict:
       options={"require": ["sub", "exp", "iss"]},
   )
   
-

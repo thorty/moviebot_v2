@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]  # adjust depth
 sys.path.insert(0, str(ROOT))
 
-from backend.utils.helper import choose_streaming_providers
+from backend.utils.helper import choose_streaming_providers, split_streaming_and_mediatheken
 from backend.utils.tmdb.common import FreeProvider
 
 
@@ -123,4 +123,16 @@ class TestFilterStreamingProvidersHelper:
         result_rent = choose_streaming_providers(user_providers, ["rent"])
         assert "MagentaTV" in result_rent  # Exact match in Provider
         assert "Magenta TV+" in result_rent  # Exact match in Provider
-        
+
+    def test_split_streaming_and_mediatheken_preserves_streaming_providers(self):
+        streaming_providers, include_mediatheken = split_streaming_and_mediatheken(
+            ["Netflix", "Mediatheken", "Netflix", "ARD Mediathek"]
+        )
+
+        assert streaming_providers == ["Netflix"]
+        assert include_mediatheken is True
+
+    def test_choose_streaming_providers_ignores_mediatheken_sentinel(self):
+        result = choose_streaming_providers(["Netflix", "Mediatheken"], ["free"])
+
+        assert result == ["Netflix"]

@@ -31,6 +31,8 @@ class AgentState(TypedDict):
     conversation_id: str
     # User's streaming providers
     userstreamingproviders: list[str]
+    # Include ARD/ZDF/Arte/3sat public media libraries as an additional availability source
+    include_mediatheken: bool
     # User's payment types (e.g., free, rent)
     paymenttypes: list[str]
     # Messages for conversation history
@@ -45,6 +47,7 @@ class AgentState(TypedDict):
     
     # Validation and results tracking
     last_filter_results: dict  # Results from filter_streaming_providers tool
+    last_mediatheken_results: dict  # Results from search_public_mediatheken tool
     validation_status: str  # "success" | "max_retries" | "pending"
     found_titles: list[str]  # Blacklist: Only titles already presented to the user (prevents duplicate recommendations)
 

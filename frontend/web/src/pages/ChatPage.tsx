@@ -26,11 +26,12 @@ const DEFAULT_FILTERS: Filters = {
   source: "streaming",
   providers: ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
   paymentTypes: ["free", "rent"],
+  includeMediatheken: false,
 }
 
 const FILTERS_STORAGE_KEY = "moviebot.userFilters"
 
-const DEFAULT_PAYMENT_TYPES = ["free", "rent"]
+const DEFAULT_PAYMENT_TYPES: Filters["paymentTypes"] = ["free", "rent"]
 
 const LOADING_HINTS = [
   "suche nach den besten Treffern ",
@@ -61,16 +62,18 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const hasMessages = messages.length > 0
 
   const buildRequestFilters = useCallback(
-    (selectedFilters: Filters): { userstreamingproviders: string[]; paymenttypes: string[] } => {
-      const requestProviders =
-        selectedFilters.source === "mediathek"
-          ? ["Mediatheken"]
-          : selectedFilters.providers.length > 0
-            ? selectedFilters.providers
+    (selectedFilters: Filters): { userstreamingproviders: string[]; paymenttypes: string[]; include_mediatheken: boolean } => {
+      const includeMediatheken = selectedFilters.includeMediatheken || selectedFilters.source === "mediathek"
+      const requestProviders = selectedFilters.source === "mediathek"
+        ? []
+        : selectedFilters.providers.length > 0
+          ? selectedFilters.providers
+          : includeMediatheken
+            ? []
             : DEFAULT_FILTERS.providers
 
       const requestPaymentTypes =
-        selectedFilters.source === "mediathek"
+        requestProviders.length === 0 && includeMediatheken
           ? ["free"]
           : selectedFilters.paymentTypes.length > 0
             ? selectedFilters.paymentTypes
@@ -79,6 +82,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       return {
         userstreamingproviders: requestProviders,
         paymenttypes: requestPaymentTypes,
+        include_mediatheken: includeMediatheken,
       }
     },
     []
@@ -90,7 +94,12 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       if (cachedRaw) {
         const cachedFilters = JSON.parse(cachedRaw) as Filters
         if (cachedFilters?.source) {
-          setFilters(cachedFilters)
+          setFilters({
+            source: "streaming",
+            providers: cachedFilters.source === "mediathek" ? [] : cachedFilters.providers || [],
+            paymentTypes: cachedFilters.paymentTypes?.length ? cachedFilters.paymentTypes : DEFAULT_PAYMENT_TYPES,
+            includeMediatheken: Boolean(cachedFilters.includeMediatheken || cachedFilters.source === "mediathek"),
+          })
         }
       }
     } catch {
@@ -106,10 +115,12 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
           return
         }
 
+        const includeMediatheken = Boolean(stored.include_mediatheken || stored.source === "mediathek")
         const nextFilters: Filters = {
-          source: stored.source,
-          providers: stored.providers,
-          paymentTypes: stored.paymenttypes as Filters["paymentTypes"],
+          source: "streaming",
+          providers: stored.source === "mediathek" ? [] : stored.providers,
+          paymentTypes: stored.paymenttypes.length ? stored.paymenttypes as Filters["paymentTypes"] : DEFAULT_PAYMENT_TYPES,
+          includeMediatheken,
         }
 
         setFilters(nextFilters)
@@ -147,10 +158,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   }, [isLoading])
 
   const activeFilterCount = useMemo(() => {
-    if (filters.source === "mediathek") {
-      return 1
-    }
-    return filters.providers.length + filters.paymentTypes.length
+    return filters.providers.length + (filters.providers.length > 0 ? filters.paymentTypes.length : 0) + (filters.includeMediatheken ? 1 : 0)
   }, [filters])
 
   const appendConversation = useCallback(async (userText: string) => {
@@ -166,9 +174,10 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
 
     const requestFilters = buildRequestFilters(filters)
     const persistedFilters: Filters = {
-      source: filters.source,
+      source: "streaming",
       providers: requestFilters.userstreamingproviders,
       paymentTypes: requestFilters.paymenttypes as Filters["paymentTypes"],
+      includeMediatheken: requestFilters.include_mediatheken,
     }
 
     window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(persistedFilters))
@@ -176,6 +185,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       source: persistedFilters.source,
       providers: persistedFilters.providers,
       paymenttypes: persistedFilters.paymentTypes,
+      include_mediatheken: persistedFilters.includeMediatheken,
     }).catch(() => {
       // local cache remains fallback if backend save fails
     })
@@ -185,6 +195,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         message: userText,
         userstreamingproviders: requestFilters.userstreamingproviders,
         paymenttypes: requestFilters.paymenttypes,
+        include_mediatheken: requestFilters.include_mediatheken,
       })
 
       const botMessage: ChatMessage = {

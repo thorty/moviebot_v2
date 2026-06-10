@@ -7,8 +7,16 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import tools_condition, ToolNode
 from backend.states import AgentState
-from backend.prompts import get_content_researcher_prompt_single_provider, get_interest_analyst_prompt, get_content_researcher_prompt, get_content_researcher_prompt_mediatheken, get_scope_guard_prompt
-from backend.tools import get_all_tools, get_tools_for_providers
+from backend.prompts import (
+    get_content_researcher_prompt_single_provider,
+    get_content_researcher_prompt_combined,
+    get_interest_analyst_prompt,
+    get_content_researcher_prompt,
+    get_content_researcher_prompt_mediatheken,
+    get_scope_guard_prompt,
+)
+from backend.tools import get_all_tools, get_tools_for_availability
+from backend.utils.helper import split_streaming_and_mediatheken
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from backend.utils.setupenv import get_required_env_value
 from backend.utils.tmdb.common import Provider, PaymentTypes
@@ -83,6 +91,7 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
         "user_id": state.get("user_id", ""),
         "conversation_id": state.get("conversation_id", ""),
         "userstreamingproviders": state.get("userstreamingproviders", []),
+        "include_mediatheken": state.get("include_mediatheken", False),
         "analystresult": state.get("analystresult", "")[:100] + "..." if state.get("analystresult", "") else "",
         "scope_status": state.get("scope_status", ""),
         "scope_reason": state.get("scope_reason", ""),
@@ -94,6 +103,9 @@ def log_state(node_name: str, state: dict, position: str = "ENTRY"):
         "last_filter_results": {
             "found_count": state.get("last_filter_results", {}).get("found_count", 0)
         } if state.get("last_filter_results") else {},
+        "last_mediatheken_results": {
+            "found_count": state.get("last_mediatheken_results", {}).get("found_count", 0)
+        } if state.get("last_mediatheken_results") else {},
         "messages_count": len(state.get("messages", []))
     }
     
@@ -162,6 +174,36 @@ def _extract_presented_titles_from_text(text: str) -> list[str]:
             titles.append(title)
 
     return titles
+
+
+def build_content_researcher_prompt(
+    userstreamingproviders: list[str],
+    include_mediatheken: bool,
+    analystresult: str,
+    paymenttypes: list[str],
+) -> tuple[str, str]:
+    if include_mediatheken and userstreamingproviders:
+        return (
+            get_content_researcher_prompt_combined(userstreamingproviders, analystresult, paymenttypes),
+            "combined",
+        )
+
+    if include_mediatheken:
+        return (
+            get_content_researcher_prompt_mediatheken(userstreamingproviders, analystresult, ["free"]),
+            "mediatheken",
+        )
+
+    if len(userstreamingproviders) == 1:
+        return (
+            get_content_researcher_prompt_single_provider(userstreamingproviders[0], analystresult, paymenttypes),
+            "single_provider",
+        )
+
+    return (
+        get_content_researcher_prompt(userstreamingproviders, analystresult, paymenttypes),
+        "streaming",
+    )
 
 
 def create_scope_guard(model):
@@ -319,7 +361,11 @@ def result_validator(state: AgentState):
     last_filter_found_count = 0
     if isinstance(last_filter_results, dict):
         last_filter_found_count = int(last_filter_results.get("found_count", 0) or 0)
-    effective_found_count = max(found_titles_count, last_filter_found_count)
+    last_mediatheken_results = state.get("last_mediatheken_results", {})
+    last_mediatheken_found_count = 0
+    if isinstance(last_mediatheken_results, dict):
+        last_mediatheken_found_count = int(last_mediatheken_results.get("found_count", 0) or 0)
+    effective_found_count = max(found_titles_count, last_filter_found_count, last_mediatheken_found_count)
     
     # Check control_signal (internal state, not in messages)
     control_signal = state.get("control_signal", "")
@@ -328,6 +374,7 @@ def result_validator(state: AgentState):
     print(
         f"[VALIDATOR] Found titles(blacklist): {found_titles_count}, "
         f"last_filter_found_count: {last_filter_found_count}, "
+        f"last_mediatheken_found_count: {last_mediatheken_found_count}, "
         f"effective_found_count: {effective_found_count}, "
         f"No-results signal: {no_results_signal}"
     )
@@ -529,7 +576,8 @@ def create_interest_analyst(model):
                 "analystresult": cleaned_response_text.lower(),
                 "control_signal": "",  # Reset
                 "validation_status": "pending",  # Reset
-                "last_filter_results": {}  # Reset
+                "last_filter_results": {},  # Reset
+                "last_mediatheken_results": {},  # Reset
             }
             #log_state("interest_analyst", {**state, **result}, "EXIT")
             return result
@@ -560,7 +608,11 @@ def create_content_researcher(model):
             #log_state("content_researcher", dict(state), "ENTRY")
            
         default_streamingproviders = [provider.value for provider in Provider]
-        userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
+        raw_userstreamingproviders = state.get("userstreamingproviders", default_streamingproviders)
+        userstreamingproviders, legacy_include_mediatheken = split_streaming_and_mediatheken(raw_userstreamingproviders)
+        include_mediatheken = bool(state.get("include_mediatheken", False)) or legacy_include_mediatheken
+        if not userstreamingproviders and not include_mediatheken:
+            userstreamingproviders = default_streamingproviders
         paymenttypes = state.get("paymenttypes", [payment.value for payment in PaymentTypes])
         analystresult = state.get("analystresult", "The best actual movies and tv-shows that match the user interest")
         found_titles = state.get("found_titles", [])
@@ -568,23 +620,31 @@ def create_content_researcher(model):
         last_filter_found_count = 0
         if isinstance(last_filter_results, dict):
             last_filter_found_count = int(last_filter_results.get("found_count", 0) or 0)
+        last_mediatheken_results = state.get("last_mediatheken_results", {})
+        last_mediatheken_found_count = 0
+        if isinstance(last_mediatheken_results, dict):
+            last_mediatheken_found_count = int(last_mediatheken_results.get("found_count", 0) or 0)
 
-        force_finalize = last_filter_found_count >= 2
+        force_finalize = last_filter_found_count >= 2 and (
+            not include_mediatheken or last_mediatheken_found_count > 0
+        )
 
-        tools = get_tools_for_providers(userstreamingproviders)
+        tools = get_tools_for_availability(userstreamingproviders, include_mediatheken)
         model_with_searchtools = model.bind_tools(tools)
         
-        print(f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}")
+        print(
+            f"[CONTENT_RESEARCHER] Using providers from state: {userstreamingproviders}; "
+            f"include_mediatheken={include_mediatheken}"
+        )
         
         # Build system prompt
-        base_prompt = get_content_researcher_prompt(userstreamingproviders, analystresult,paymenttypes)
-        if len(userstreamingproviders) == 1:
-            base_prompt = get_content_researcher_prompt_single_provider(userstreamingproviders[0], analystresult,paymenttypes)
-        # Check for Mediatheken (case-insensitive)
-        if any(p.lower() == "mediatheken" for p in userstreamingproviders):
-            paymenttypes = ["free"]  # Override payment types for mediatheken to simplify prompt
-            base_prompt = get_content_researcher_prompt_mediatheken(userstreamingproviders, analystresult,paymenttypes)
-            print(f"[CONTENT_RESEARCHER] 📺 Using Mediatheken-specific prompt (ARD/ZDF only, no TMDB)")
+        base_prompt, prompt_mode = build_content_researcher_prompt(
+            userstreamingproviders,
+            include_mediatheken,
+            analystresult,
+            paymenttypes,
+        )
+        print(f"[CONTENT_RESEARCHER] Using prompt mode: {prompt_mode}")
         # Add blacklist to prevent duplicates
         if found_titles:
             blacklist_note = f"""
@@ -710,23 +770,27 @@ def tool_node_with_state_tracking(state: AgentState):
     # Führe Tools aus
     result = tool_node.invoke(state)
     
-    # Extrahiere Filter-Ergebnisse aus der letzten Tool-Nachricht
+    def parse_tool_content(content: Any) -> dict[str, Any] | None:
+        if isinstance(content, dict):
+            return content
+        if isinstance(content, str):
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return None
+        return None
+
+    # Extrahiere Tool-Ergebnisse aus den letzten Tool-Nachrichten
     if "messages" in result:
+        tracked_filter_results = False
+        tracked_mediatheken_results = False
         for msg in reversed(result["messages"]):
-            if hasattr(msg, 'name') and msg.name == 'filter_streaming_providers':
+            if hasattr(msg, 'name') and msg.name == 'filter_streaming_providers' and not tracked_filter_results:
                 try:
-                    # Parse Tool-Result
                     if hasattr(msg, 'content'):
-                        content = msg.content
-                        
-                        # Content kann schon ein dict sein oder ein JSON-String
-                        if isinstance(content, dict):
-                            filter_results = content
-                        elif isinstance(content, str):
-                            import json
-                            filter_results = json.loads(content)
-                        else:
-                            print(f"[TOOL_NODE] Unknown content type: {type(content)}")
+                        filter_results = parse_tool_content(msg.content)
+                        if filter_results is None:
+                            print(f"[TOOL_NODE] Unknown content type: {type(msg.content)}")
                             continue
                         
                         found_count = filter_results.get('found_count', 0)
@@ -739,11 +803,33 @@ def tool_node_with_state_tracking(state: AgentState):
                         result.update({
                             "last_filter_results": filter_results
                         })
-                        break
+                        tracked_filter_results = True
                 except Exception as e:
                     print(f"[TOOL_NODE] Error parsing filter results: {e}")
                     import traceback
                     traceback.print_exc()
+            elif hasattr(msg, 'name') and msg.name == 'search_public_mediatheken' and not tracked_mediatheken_results:
+                try:
+                    if hasattr(msg, 'content'):
+                        mediatheken_results = parse_tool_content(msg.content)
+                        if mediatheken_results is None:
+                            print(f"[TOOL_NODE] Unknown content type: {type(msg.content)}")
+                            continue
+
+                        found_count = mediatheken_results.get('found_count', 0)
+                        print(f"[TOOL_NODE] Tracked mediatheken results: {found_count} source-backed result(s)")
+
+                        result.update({
+                            "last_mediatheken_results": mediatheken_results
+                        })
+                        tracked_mediatheken_results = True
+                except Exception as e:
+                    print(f"[TOOL_NODE] Error parsing mediatheken results: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            if tracked_filter_results and tracked_mediatheken_results:
+                break
     
     #log_state("tool_node", {**state, **result}, "EXIT")
     return result
