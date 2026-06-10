@@ -5,11 +5,6 @@ Moviebot is an LLM-based movie and TV recommendation assistant.
 
 Fullstack MVP (FastAPI + React + Supabase, locally via Docker Compose).
 
-## POC
-- Backend: LangGraph
-- Frontend: Gradio
-- Current entry point: `gradio frontend/gradio/app.py`
-
 ## Fullstack MVP
 - Backend: FastAPI + LangGraph
 - Frontend: React/TypeScript (shadcn/Tailwind)
@@ -50,7 +45,6 @@ Fullstack MVP (FastAPI + React + Supabase, locally via Docker Compose).
 
 
 ## Start Commands
-- POC: `gradio frontend/gradio/app.py`
 - Backend (target path): `uvicorn main:app --reload`
 - Frontend (target path): `npm run dev`
 - Docker: `docker compose up`
