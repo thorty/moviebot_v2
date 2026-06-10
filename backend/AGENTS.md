@@ -45,3 +45,6 @@ This directory owns LangGraph behavior, LLM/tool orchestration, TMDB filtering, 
   - `uv run pytest tests/test_auth_guard.py -q`
 - Run `uv run pytest -q` for graph/tool/persistence changes before final response.
 - Tests should mock external APIs. Do not depend on live Google, TMDB, or Supabase network calls in unit tests.
+- For backend feature or performance changes validated in Docker, inspect `docker compose logs --tail=200 backend`.
+- For persistence, auth, migration, or schema changes, also inspect `docker compose logs --tail=200 supabase-rest supabase-auth supabase-db supabase-migrations`.
+- Include a short Docker log summary in the final response, or say explicitly if logs could not be checked.

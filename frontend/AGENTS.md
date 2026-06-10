@@ -52,3 +52,5 @@ The production-target frontend is `frontend/web`. `frontend/terminal` is a legac
 - There is no dedicated frontend test runner yet. Use `npm run build` as the minimum verification.
 - After significant UI changes, open `http://localhost:3000` and verify the main chat workflow visually.
 - For API shape changes, verify both TypeScript types and backend request models.
+- For frontend feature or performance changes validated in Docker, inspect `docker compose logs --tail=200 frontend-web backend`.
+- Include a short Docker log summary in the final response, or say explicitly if logs could not be checked.

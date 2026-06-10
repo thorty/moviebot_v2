@@ -45,6 +45,14 @@ Use this file to avoid rediscovering core project decisions in every session. Mo
 - Migration changes require running `supabase-migrations`; PostgREST schema-cache issues can require `docker compose restart supabase-rest`.
 - `docker compose down -v` deletes local Supabase data and users.
 
+## Docker Log Review
+- For every feature optimization, performance optimization, or Docker-validated bug fix, inspect Docker logs before finalizing.
+- Minimum backend/API log check: `docker compose logs --tail=200 backend`
+- For frontend-facing changes, also check: `docker compose logs --tail=200 frontend-web`
+- For auth, persistence, migrations, or schema issues, also check: `docker compose logs --tail=200 supabase-rest supabase-auth supabase-db supabase-migrations`
+- In the final response, mention whether logs were checked and summarize relevant errors or warnings.
+- If Docker is not running or logs cannot be inspected, say that explicitly instead of implying runtime verification.
+
 ## Google/Gemini Notes
 - The repo uses both `langchain-google-genai` for chat/tool-calling and `google-genai` directly for Google Search grounding.
 - Be conservative with Gemini API-version changes. Prior attempts to force `v1` for LangChain chat/tool-calling caused 400 errors for `systemInstruction` and `tools` payload fields in Docker.
