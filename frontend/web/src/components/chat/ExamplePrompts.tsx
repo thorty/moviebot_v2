@@ -25,7 +25,7 @@ const EXAMPLE_PROMPTS = [
   },
   {
     icon: Heart,
-    text: "Etwas Romantisches mit ohne Drama mit Happy End",
+    text: "Etwas Romantisches ohne Drama mit Happy End",
     accent: "#EC4899",
     glow: "rgba(236, 72, 153, 0.34)",
     backdrop: "radial-gradient(circle at 74% 54%, rgba(244, 114, 182, 0.68), transparent 16%), linear-gradient(135deg, rgba(103, 24, 72, 0.96), rgba(37, 13, 34, 0.96))",
