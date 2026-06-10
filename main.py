@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+import logging
 import os
 import json
+import time
 from typing import Any
 
 import jwt
@@ -23,6 +25,7 @@ from backend.utils.setupenv import load_environment
 app = FastAPI(title="Moviebot API", version="0.1.0")
 auth_scheme = HTTPBearer(auto_error=False)
 graph_app: Any | None = None
+logger = logging.getLogger(__name__)
 
 default_frontend_origin = os.getenv("FRONTEND_WEB_URL", "http://localhost:3000").rstrip("/")
 allowed_origins = [
@@ -187,6 +190,7 @@ def is_provider_quota_error(exc: Exception) -> bool:
 
 def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -> str:
     app_graph = get_graph_app()
+    start_time = time.perf_counter()
 
     normalized_paymenttypes = [payment.strip().lower() for payment in payload.paymenttypes if payment and payment.strip()]
     normalized_paymenttypes = ["free" if payment == "flatrate" else payment for payment in normalized_paymenttypes]
@@ -216,12 +220,48 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         "recursion_limit": 50,
     }
 
-    result = app_graph.invoke(graph_input, config)
+    logger.info(
+        "[CHAT_GRAPH_START] user_id=%s conversation_id=%s message_chars=%s providers=%s paymenttypes=%s include_mediatheken=%s thread_id=%s",
+        user_id,
+        conversation_id,
+        len(payload.message or ""),
+        effective_providers,
+        normalized_paymenttypes,
+        include_mediatheken,
+        config["configurable"]["thread_id"],
+    )
+
+    try:
+        result = app_graph.invoke(graph_input, config)
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.exception(
+            "[CHAT_GRAPH_ERROR] user_id=%s conversation_id=%s duration_ms=%.1f error_type=%s",
+            user_id,
+            conversation_id,
+            duration_ms,
+            exc.__class__.__name__,
+        )
+        raise
+
     final_messages = result.get("messages", [])
+    reply = ""
     for msg in reversed(final_messages):
         if hasattr(msg, "type") and msg.type == "ai" and getattr(msg, "content", ""):
-            return stringify_message_content(msg.content)
-    return ""
+            reply = stringify_message_content(msg.content)
+            break
+
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    logger.info(
+        "[CHAT_GRAPH_END] user_id=%s conversation_id=%s duration_ms=%.1f final_messages=%s reply_chars=%s",
+        user_id,
+        conversation_id,
+        duration_ms,
+        len(final_messages),
+        len(reply),
+    )
+
+    return reply
 
 
 @app.get("/health")

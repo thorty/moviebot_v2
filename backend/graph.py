@@ -2,6 +2,7 @@ import os
 import dotenv
 import json
 import re
+import time
 from typing import Any
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -23,6 +24,81 @@ from backend.utils.tmdb.common import Provider, PaymentTypes
 import logging
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def _get_llm_model_name(model: Any) -> str:
+    for attr_name in ("model", "model_name"):
+        model_name = getattr(model, attr_name, None)
+        if model_name:
+            return str(model_name)
+
+    bound_model = getattr(model, "bound", None)
+    if bound_model is not None and bound_model is not model:
+        return _get_llm_model_name(bound_model)
+
+    return model.__class__.__name__
+
+
+def _count_message_types(messages: list[Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for msg in messages:
+        msg_type = getattr(msg, "type", msg.__class__.__name__)
+        counts[str(msg_type)] = counts.get(str(msg_type), 0) + 1
+    return counts
+
+
+def _response_content_length(response: Any) -> int:
+    content = getattr(response, "content", "")
+    if isinstance(content, str):
+        return len(content)
+    if content is None:
+        return 0
+    return len(str(content))
+
+
+def _invoke_llm_with_timing(model: Any, messages: list[Any], call_name: str) -> Any:
+    model_name = _get_llm_model_name(model)
+    message_type_counts = _count_message_types(messages)
+    start_time = time.perf_counter()
+
+    logger.info(
+        "[LLM_CALL_START] call=%s model=%s messages=%s message_types=%s",
+        call_name,
+        model_name,
+        len(messages),
+        json.dumps(message_type_counts, sort_keys=True),
+    )
+
+    try:
+        response = model.invoke(messages)
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.exception(
+            "[LLM_CALL_ERROR] call=%s model=%s duration_ms=%.1f error_type=%s",
+            call_name,
+            model_name,
+            duration_ms,
+            exc.__class__.__name__,
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    tool_calls = getattr(response, "tool_calls", None) or []
+    response_metadata = getattr(response, "response_metadata", {}) or {}
+    finish_reason = response_metadata.get("finish_reason") or response_metadata.get("finishReason") or ""
+
+    logger.info(
+        "[LLM_CALL_END] call=%s model=%s duration_ms=%.1f response_chars=%s tool_calls=%s finish_reason=%s",
+        call_name,
+        model_name,
+        duration_ms,
+        _response_content_length(response),
+        len(tool_calls),
+        finish_reason,
+    )
+
+    return response
 
 def initialize_analyst_model():
     """
@@ -304,7 +380,7 @@ def create_scope_guard(model):
 
         sys_msg = SystemMessage(content=get_scope_guard_prompt())
         classifier_input = HumanMessage(content=conversation_context)
-        response = model.invoke([sys_msg, classifier_input])
+        response = _invoke_llm_with_timing(model, [sys_msg, classifier_input], "scope_guard.classifier")
         label = (response.content if isinstance(response.content, str) else str(response.content)).strip().lower()
 
         if "out_of_scope" in label:
@@ -540,7 +616,7 @@ def create_interest_analyst(model):
                 f"[CONTEXT_PRUNE][interest_analyst] total_messages={len(original_messages)} "
                 f"after_prune={len(llm_messages)} removed={removed_count}"
             )
-        response = model.invoke([sys_msg] + llm_messages)
+        response = _invoke_llm_with_timing(model, [sys_msg] + llm_messages, "interest_analyst")
         original_content = response.content if isinstance(response.content, str) else str(response.content)
         response_text = original_content.lower()
         normalized_response = original_content.strip()
@@ -685,7 +761,7 @@ def create_content_researcher(model):
         # Keep using the tool-bound model even during forced finalization.
         # Anthropic-compatible backends reject histories containing tool messages
         # when the request omits the tools parameter entirely.
-        response = model_with_searchtools.invoke([sys_msg] + llm_messages)
+        response = _invoke_llm_with_timing(model_with_searchtools, [sys_msg] + llm_messages, "content_researcher")
         
         # ALWAYS add response to messages first (for tools_condition to work)
         result: dict[str, Any] = {
@@ -717,7 +793,11 @@ def create_content_researcher(model):
                         "Only return #NO_RESULTS# if you truly cannot continue after the allowed attempts."
                     )
                 )
-                response = model_with_searchtools.invoke([sys_msg] + llm_messages + [recovery_msg])
+                response = _invoke_llm_with_timing(
+                    model_with_searchtools,
+                    [sys_msg] + llm_messages + [recovery_msg],
+                    "content_researcher.recovery",
+                )
                 result["messages"] = [response]
 
                 if not response.content or response.content == "null":

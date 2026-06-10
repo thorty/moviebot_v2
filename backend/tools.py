@@ -1,6 +1,8 @@
 
+import logging
 import os
 import sys
+import time
 from typing import Any, Dict
 from urllib.parse import urlparse
 from langchain_core.tools import tool
@@ -19,6 +21,7 @@ from backend.utils.helper import (
 from backend.utils.setupenv import get_required_env_value, load_environment
 
 load_environment()
+logger = logging.getLogger(__name__)
 
 GOOGLE_SEARCH_MODEL = os.getenv("GOOGLE_SEARCH_MODEL", os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash"))
 SEARCH_SNIPPET_MAX_CHARS = 280
@@ -177,15 +180,45 @@ def _run_google_grounded_search(query: str) -> Any:
             "Google Gemini dependencies are missing. Install google-genai and langchain-google-genai."
         ) from exc
 
-    client = genai.Client(api_key=get_required_env_value("GOOGLE_API_KEY"))
-    return client.models.generate_content(
-        model=GOOGLE_SEARCH_MODEL,
-        contents=query,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-            temperature=0.2,
-        ),
+    query_text = str(query or "")
+    start_time = time.perf_counter()
+    logger.info(
+        "[LLM_GROUNDING_START] model=%s query_chars=%s",
+        GOOGLE_SEARCH_MODEL,
+        len(query_text),
     )
+
+    try:
+        client = genai.Client(api_key=get_required_env_value("GOOGLE_API_KEY"))
+        response = client.models.generate_content(
+            model=GOOGLE_SEARCH_MODEL,
+            contents=query,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.2,
+            ),
+        )
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.exception(
+            "[LLM_GROUNDING_ERROR] model=%s duration_ms=%.1f error_type=%s",
+            GOOGLE_SEARCH_MODEL,
+            duration_ms,
+            exc.__class__.__name__,
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    answer = getattr(response, "text", "") or ""
+    source_count = len(_extract_google_grounding_sources(response))
+    logger.info(
+        "[LLM_GROUNDING_END] model=%s duration_ms=%.1f answer_chars=%s sources=%s",
+        GOOGLE_SEARCH_MODEL,
+        duration_ms,
+        len(answer),
+        source_count,
+    )
+    return response
 
 @tool(args_schema=FilterStreamingProvidersArgs)
 def filter_streaming_providers(titleList: list[TitleInfo], userstreamingproviders: list[str], paymenttypes: list[str]) -> dict:
