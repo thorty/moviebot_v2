@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, ChevronUp, Clapperboard, Plus, SlidersHorizontal } from "lucide-react"
+import { Bot, LogOut, MessageCircle, Plus, SlidersHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { ChatInput } from "@/components/chat/ChatInput"
@@ -22,9 +22,11 @@ function generateUUID(): string {
   })
 }
 
+const DEFAULT_STREAMING_PROVIDERS = ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "Magenta TV"]
+
 const DEFAULT_FILTERS: Filters = {
   source: "streaming",
-  providers: ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "MagentaTV"],
+  providers: DEFAULT_STREAMING_PROVIDERS,
   paymentTypes: ["free", "rent"],
   includeMediatheken: false,
 }
@@ -32,6 +34,27 @@ const DEFAULT_FILTERS: Filters = {
 const FILTERS_STORAGE_KEY = "moviebot.userFilters"
 
 const DEFAULT_PAYMENT_TYPES: Filters["paymentTypes"] = ["free", "rent"]
+
+const getFiltersStorageKey = (userEmail?: string) => {
+  return userEmail ? `${FILTERS_STORAGE_KEY}.${userEmail}` : FILTERS_STORAGE_KEY
+}
+
+const normalizeProviderName = (provider: string) => provider === "MagentaTV" ? "Magenta TV" : provider
+
+const normalizeFiltersForUi = (filters: Filters): Filters => {
+  const includeMediatheken = Boolean(filters.includeMediatheken || filters.source === "mediathek")
+  const providers = filters.source === "mediathek"
+    ? []
+    : (filters.providers || []).map(normalizeProviderName)
+  const shouldUseDefaultStreamingProviders = providers.length === 0 && !includeMediatheken
+
+  return {
+    source: "streaming",
+    providers: shouldUseDefaultStreamingProviders ? DEFAULT_STREAMING_PROVIDERS : providers,
+    paymentTypes: filters.paymentTypes?.length ? filters.paymentTypes : DEFAULT_PAYMENT_TYPES,
+    includeMediatheken,
+  }
+}
 
 const LOADING_HINTS = [
   "suche nach den besten Treffern ",
@@ -89,17 +112,14 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   )
 
   useEffect(() => {
+    const storageKey = getFiltersStorageKey(userEmail)
+
     try {
-      const cachedRaw = window.localStorage.getItem(FILTERS_STORAGE_KEY)
+      const cachedRaw = window.localStorage.getItem(storageKey)
       if (cachedRaw) {
         const cachedFilters = JSON.parse(cachedRaw) as Filters
         if (cachedFilters?.source) {
-          setFilters({
-            source: "streaming",
-            providers: cachedFilters.source === "mediathek" ? [] : cachedFilters.providers || [],
-            paymentTypes: cachedFilters.paymentTypes?.length ? cachedFilters.paymentTypes : DEFAULT_PAYMENT_TYPES,
-            includeMediatheken: Boolean(cachedFilters.includeMediatheken || cachedFilters.source === "mediathek"),
-          })
+          setFilters(normalizeFiltersForUi(cachedFilters))
         }
       }
     } catch {
@@ -115,16 +135,15 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
           return
         }
 
-        const includeMediatheken = Boolean(stored.include_mediatheken || stored.source === "mediathek")
-        const nextFilters: Filters = {
-          source: "streaming",
-          providers: stored.source === "mediathek" ? [] : stored.providers,
-          paymentTypes: stored.paymenttypes.length ? stored.paymenttypes as Filters["paymentTypes"] : DEFAULT_PAYMENT_TYPES,
-          includeMediatheken,
-        }
+        const nextFilters = normalizeFiltersForUi({
+          source: stored.source,
+          providers: stored.providers,
+          paymentTypes: stored.paymenttypes as Filters["paymentTypes"],
+          includeMediatheken: stored.include_mediatheken,
+        })
 
         setFilters(nextFilters)
-        window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(nextFilters))
+        window.localStorage.setItem(storageKey, JSON.stringify(nextFilters))
       } catch {
         // keep local/default filters if backend filters are unavailable
       }
@@ -135,7 +154,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     return () => {
       isCancelled = true
     }
-  }, [])
+  }, [userEmail])
 
   useEffect(() => {
     if (!isLoading) {
@@ -180,7 +199,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
       includeMediatheken: requestFilters.include_mediatheken,
     }
 
-    window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(persistedFilters))
+    window.localStorage.setItem(getFiltersStorageKey(userEmail), JSON.stringify(persistedFilters))
     void saveUserFilters({
       source: persistedFilters.source,
       providers: persistedFilters.providers,
@@ -273,87 +292,69 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   }, [isLoading, isResetting])
 
   return (
-    <div className="flex h-dvh flex-col" style={{ backgroundColor: "hsl(var(--background))" }}>
-      <header className="flex items-center justify-between border-b px-4 py-3 md:px-6" style={{ borderColor: "hsl(var(--border))" }}>
+    <div className="moviebot-shell relative flex h-dvh flex-col overflow-hidden">
+      <header className="relative z-20 flex items-center justify-between border-b border-white/10 bg-black/35 px-4 py-3 backdrop-blur-xl md:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-              <Clapperboard className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-foreground">Moviebot</h1>
-              <p className="hidden text-xs text-muted-foreground sm:block">Dein Film- & Serienberater</p>
-            </div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 shadow-[0_0_24px_rgba(168,85,247,0.18)]">
+            <Bot className="h-7 w-7 text-white" />
           </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-normal text-foreground md:text-3xl">Moviebot</h1>
+            <p className="hidden text-xs text-muted-foreground sm:block">Dein Film- & Serienberater</p>
+          </div>
+        </div>
 
+        <div className="flex items-center gap-2 md:gap-4">
           <button
             onClick={() => setFiltersOpen((current) => !current)}
             className={cn(
-              "flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-bold tracking-wide transition-all border"
+              "moviebot-header-button",
+              filtersOpen && "border-primary/40 text-foreground shadow-[0_0_20px_hsl(var(--primary)/0.18)]"
             )}
-            style={
-              filtersOpen
-                ? {
-                    color: "hsl(var(--primary-foreground))",
-                    borderColor: "hsl(var(--primary))",
-                    background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)",
-                    boxShadow: "0 0 0 2px hsl(var(--primary) / 0.35)",
-                  }
-                : {
-                    color: "hsl(var(--primary-foreground))",
-                    borderColor: "hsl(var(--primary))",
-                    background: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)",
-                  }
-            }
+            aria-expanded={filtersOpen}
           >
-            <SlidersHorizontal className="h-5 w-5" />
-            <span>FILTER</span>
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">Filter</span>
             {activeFilterCount > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
                 {activeFilterCount}
               </span>
             )}
-            {filtersOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
-        </div>
 
-        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void handleNewChat()}
+            disabled={isLoading || isResetting}
+            className="moviebot-header-button text-primary"
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Neuer Chat</span>
+            <Plus className="hidden h-3.5 w-3.5 sm:block" />
+          </button>
+
           {userEmail && (
-            <span className="hidden max-w-[220px] truncate rounded-lg bg-secondary px-3 py-2 text-xs text-muted-foreground md:block">
+            <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground lg:block">
               {userEmail}
             </span>
           )}
 
           {onLogout && (
-            <button
-              onClick={onLogout}
-              className="rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/80 hover:text-foreground"
-            >
-              Logout
-            </button>
-          )}
-
-          {hasMessages && (
-            <button
-              onClick={() => void handleNewChat()}
-              disabled={isLoading || isResetting}
-              className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:text-foreground hover:bg-secondary/80"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Neuer Chat</span>
+            <button onClick={onLogout} className="moviebot-header-button">
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           )}
         </div>
       </header>
 
-      {filtersOpen && (
-        <div className="border-b bg-card px-4 py-4 md:px-6" style={{ borderColor: "hsl(var(--border))" }}>
+      <section className={cn("relative z-10 border-b border-white/5 bg-black/20 px-4 py-4 backdrop-blur-sm md:block", !filtersOpen && "hidden md:block")}>
+        <div className="mx-auto max-w-6xl">
           <FilterPanel filters={filters} onFiltersChange={setFilters} />
         </div>
-      )}
+      </section>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
+      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
+        <div className={cn("moviebot-stage mx-auto w-full px-4 md:px-6", hasMessages ? "max-w-4xl py-8" : "max-w-6xl py-5")}>
           {!hasMessages ? (
             <ExamplePrompts onSelect={handleExampleSelect} />
           ) : (
@@ -362,10 +363,10 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         </div>
       </div>
 
-      <div className="border-t px-4 py-4 md:px-6" style={{ borderColor: "hsl(var(--border))" }}>
-        <div className="mx-auto max-w-3xl">
+      <div className="relative z-20 px-4 pb-4 pt-2 md:px-6 md:pb-6">
+        <div className="mx-auto max-w-5xl">
           <ChatInput value={input} onChange={setInput} onSubmit={handleSend} isLoading={isLoading} />
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
             Moviebot kann Fehler machen. Verfügbarkeit auf Plattformen kann variieren. (Powered by tmdb)
           </p>          
         </div>

@@ -27,6 +27,9 @@ auth_scheme = HTTPBearer(auto_error=False)
 graph_app: Any | None = None
 logger = logging.getLogger(__name__)
 
+DEFAULT_STREAMING_PROVIDERS = ["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "Magenta TV"]
+DEFAULT_PAYMENT_TYPES = ["free", "rent"]
+
 default_frontend_origin = os.getenv("FRONTEND_WEB_URL", "http://localhost:3000").rstrip("/")
 allowed_origins = [
     default_frontend_origin,
@@ -363,19 +366,26 @@ def get_user_filters(user_claims: dict = Depends(require_user_context)) -> UserF
             status="ok",
             user_id=user_id,
             source="streaming",
-            providers=["Netflix", "Disney Plus", "Amazon", "WOW", "Paramount Plus", "Apple TV", "Magenta TV"],
-            paymenttypes=["free", "rent"],
+            providers=DEFAULT_STREAMING_PROVIDERS,
+            paymenttypes=DEFAULT_PAYMENT_TYPES,
             include_mediatheken=False,
         )
 
     source = str(preferences.get("source", "streaming"))
+    providers = list(preferences.get("providers", []) or [])
+    paymenttypes = list(preferences.get("payment_types", []) or [])
+    include_mediatheken = bool(preferences.get("include_mediatheken", source == "mediathek"))
+
+    if source == "streaming" and not providers and not include_mediatheken:
+        providers = DEFAULT_STREAMING_PROVIDERS
+
     return UserFilterPreferencesResponse(
         status="ok",
         user_id=user_id,
         source=source,
-        providers=list(preferences.get("providers", []) or []),
-        paymenttypes=list(preferences.get("payment_types", []) or []),
-        include_mediatheken=bool(preferences.get("include_mediatheken", source == "mediathek")),
+        providers=providers,
+        paymenttypes=paymenttypes or DEFAULT_PAYMENT_TYPES,
+        include_mediatheken=include_mediatheken,
     )
 
 
