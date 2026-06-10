@@ -2,6 +2,7 @@
 import os
 import sys
 from typing import Any, Dict
+from urllib.parse import urlparse
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field, field_validator
 # Tavily fallback, kept commented for easy future switching:
@@ -21,6 +22,14 @@ load_environment()
 
 GOOGLE_SEARCH_MODEL = os.getenv("GOOGLE_SEARCH_MODEL", os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash"))
 SEARCH_SNIPPET_MAX_CHARS = 280
+PUBLIC_MEDIATHEKEN_DOMAINS = {
+    "ardmediathek.de": "ARD Mediathek",
+    "ard.de": "ARD Mediathek",
+    "daserste.de": "ARD Mediathek",
+    "zdf.de": "ZDF Mediathek",
+    "arte.tv": "Arte",
+    "3sat.de": "3sat",
+}
 # Tavily fallback, kept commented for easy future switching:
 # TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 # TAVILY_SNIPPET_MAX_CHARS = 280
@@ -79,6 +88,30 @@ def _truncate_text(value: Any, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 3].rstrip() + "..."
+
+
+def _get_public_mediatheken_service(url: str) -> str:
+    host = urlparse(str(url or "")).netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+
+    for domain, service in PUBLIC_MEDIATHEKEN_DOMAINS.items():
+        if host == domain or host.endswith(f".{domain}"):
+            return service
+
+    return ""
+
+
+def _enrich_public_mediatheken_source(source: dict[str, str]) -> dict[str, str | bool]:
+    url = str(source.get("url", "") or "").strip()
+    service = _get_public_mediatheken_service(url)
+
+    return {
+        **source,
+        "service": service,
+        "deeplink_url": url if service else "",
+        "is_official_mediathek_source": bool(service),
+    }
 
 
 # Tavily fallback, kept commented for easy future switching:
@@ -334,25 +367,30 @@ def search_public_mediatheken(query: str) -> Dict[str, Any]:
             "search_query": mediatheken_query,
             "answer": "",
             "results": [],
+            "official_results": [],
             "found_count": 0,
             "error": "google_search_unavailable",
             "error_message": _truncate_text(error_message, 500),
         }
 
     sources = [
-        {
-            **source,
-            "content": _truncate_text(source.get("content", ""), SEARCH_SNIPPET_MAX_CHARS),
-        }
+        _enrich_public_mediatheken_source(
+            {
+                **source,
+                "content": _truncate_text(source.get("content", ""), SEARCH_SNIPPET_MAX_CHARS),
+            }
+        )
         for source in _extract_google_grounding_sources(response)
     ]
+    official_sources = [source for source in sources if source.get("is_official_mediathek_source")]
     answer = getattr(response, "text", "") or ""
     return {
         "query": original_query,
         "search_query": mediatheken_query,
         "answer": _truncate_text(answer, 1200),
         "results": sources,
-        "found_count": len(sources) if sources else (1 if answer else 0),
+        "official_results": official_sources,
+        "found_count": len(official_sources) if official_sources else (1 if answer else 0),
     }
 
 

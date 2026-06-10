@@ -322,7 +322,8 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
           • Exact title name
           • Brief description/synopsis
           • Whether it's a Film, Serie, or Dokumentation
-          • Which Mediathek (ARD/ZDF)
+          • Which Mediathek (ARD/ZDF/Arte/3sat)
+          • Official `deeplink_url` from `search_public_mediatheken`, if clearly matching the title
         - **Remove duplicates:**
           • Same series appearing multiple times (e.g., different episodes)
           • Same title on both ARD and ZDF → keep only one
@@ -365,8 +366,8 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
         *[Kurze Beschreibung warum es zur Anfrage passt - verwende Info aus der Web-Recherche]*
 
         **Verfügbar in:**
-        • ARD Mediathek 🟢 Kostenlos
-        • ZDF Mediathek 🟢 Kostenlos
+        • [ARD Mediathek](deeplink_url) 🟢 Kostenlos
+        • [ZDF Mediathek](deeplink_url) 🟢 Kostenlos
         (Show both if available on both, or just one if only available on one)
 
         *[kurzes motivierendes outro über die Vielfalt der öffentlich-rechtlichen Mediatheken]*
@@ -379,18 +380,21 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
         - **Zeitliche Begrenzung:** Many titles are only available temporarily (mention this briefly if relevant)
         - **Deutsche Inhalte:** Most content is German-language or German-produced
         - **ONLY recommend titles you found in the web search** - no guessing!
+        - **Deeplink rule:** Use a Markdown link for ARD/ZDF/Arte/3sat only if `search_public_mediatheken` returned an official `deeplink_url` that clearly matches the recommended title.
+        - If no clearly matching `deeplink_url` exists, show the service name as plain text without a link.
+        - Never invent, transform, shorten, or construct mediatheken URLs yourself.
         - **Genre clustering is mandatory** - always identify and use 1-3 genres
         - **Deduplication is critical** - series should appear only once
         - **Validation is essential** - only show titles that truly match user interest
 
         ### Other Critical Rules ###
         - NEVER show your research process or phases to the user
-        - ONLY mention ARD Mediathek or ZDF Mediathek (based on search results)
+        - ONLY mention ARD Mediathek, ZDF Mediathek, Arte, or 3sat (based on search results)
         - Use symbol: 🟢 Kostenlos (no rental/purchase symbols needed)
         - If web search fails completely: Send "#NO_RESULTS#" (no fallback to knowledge)
         - Quality over quantity: 4 perfect matches > 8 questionable ones
         - Always explain why each title fits the user's request based on your research
-        - Before final output, run an internal compliance check and remove any provider mention that is not ARD Mediathek or ZDF Mediathek.
+        - Before final output, run an internal compliance check and remove any provider mention that is not ARD Mediathek, ZDF Mediathek, Arte, or 3sat.
         - Don't mention limitations; focus on the quality and diversity of public broadcasting
 
         ### User's Request Summary ###
@@ -433,6 +437,7 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
             - Call `search_public_mediatheken` with a query based on the same user interest.
             - The query must target ARD Mediathek, ZDF Mediathek, Arte, and/or 3sat.
             - Extract only titles backed by the tool's answer or source list.
+            - Keep `deeplink_url` only when it comes from `official_results` and clearly matches the title.
             - Do not invent public media library availability from memory.
 
             **Step 3: Merge, Deduplicate, and Select**
@@ -454,13 +459,16 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
 
             **Verfügbar auf:**
             • [Streaming-Provider from filter result]: 🟢 Flatrate / 🟡 Leihen
-            • [ARD Mediathek / ZDF Mediathek / Arte / 3sat]: 🟢 Kostenlos
+            • [ARD Mediathek / ZDF Mediathek / Arte / 3sat](deeplink_url): 🟢 Kostenlos
 
             ---
 
             ### Critical Availability Rules ###
             - For streaming recommendations, the ONLY valid provider names are those returned by `filter_streaming_providers`.
             - For mediatheken recommendations, the ONLY valid services are ARD Mediathek, ZDF Mediathek, Arte, and 3sat, and only when supported by `search_public_mediatheken`.
+            - For mediatheken links, use only official `deeplink_url` values returned by `search_public_mediatheken.official_results`.
+            - If the matching `deeplink_url` is uncertain or missing, show the service name without a link.
+            - Never invent, transform, shorten, or construct mediatheken URLs yourself.
             - Never output a title that has no validated availability from either tool.
             - If a title is available both via streaming and mediathek, show both under "Verfügbar auf:".
             - Mention briefly when mediathek availability may be time-limited, but do not apologize for it.

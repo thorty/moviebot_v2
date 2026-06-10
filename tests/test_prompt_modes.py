@@ -24,6 +24,7 @@ def test_build_content_researcher_prompt_uses_mediatheken_mode() -> None:
 
     assert mode == "mediatheken"
     assert "Mediatheken-only search" in prompt
+    assert "deeplink_url" in prompt
     assert "filter_streaming_providers" not in prompt
 
 
@@ -38,4 +39,6 @@ def test_build_content_researcher_prompt_uses_combined_mode() -> None:
     assert mode == "combined"
     assert "filter_streaming_providers" in prompt
     assert "search_public_mediatheken" in prompt
+    assert "official_results" in prompt
+    assert "deeplink_url" in prompt
     assert "NEVER pass \"Mediatheken\"" in prompt

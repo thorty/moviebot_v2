@@ -4,6 +4,7 @@ Tests the streaming filter and search tools
 """
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from backend.tools import (
     filter_streaming_providers,
@@ -321,6 +322,35 @@ class TestSearchPublicMediatheken:
         assert "ZDF Mediathek" in called_query
         assert "Arte" in called_query
         assert "3sat" in called_query
+
+    @patch('backend.tools._run_google_grounded_search')
+    def test_search_marks_official_mediatheken_deeplink_candidates(self, mock_grounded_search):
+        official_url = "https://www.ardmediathek.de/video/test-title"
+        unofficial_url = "https://www.justwatch.com/de/Serie/test-title"
+        mock_response = SimpleNamespace(
+            text="ARD Mediathek result",
+            candidates=[
+                SimpleNamespace(
+                    grounding_metadata=SimpleNamespace(
+                        grounding_chunks=[
+                            SimpleNamespace(web=SimpleNamespace(uri=official_url, title="Test Title | ARD Mediathek")),
+                            SimpleNamespace(web=SimpleNamespace(uri=unofficial_url, title="Test Title | JustWatch")),
+                        ]
+                    )
+                )
+            ],
+        )
+        mock_grounded_search.return_value = mock_response
+
+        result = search_public_mediatheken.invoke({'query': 'Krimi Serie'})
+
+        assert result["found_count"] == 1
+        assert len(result["results"]) == 2
+        assert len(result["official_results"]) == 1
+        assert result["official_results"][0]["service"] == "ARD Mediathek"
+        assert result["official_results"][0]["deeplink_url"] == official_url
+        assert result["results"][1]["is_official_mediathek_source"] is False
+        assert result["results"][1]["deeplink_url"] == ""
 
     @patch('backend.tools._run_google_grounded_search')
     def test_search_returns_structured_error_on_failure(self, mock_grounded_search):
