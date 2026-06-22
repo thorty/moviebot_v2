@@ -26,10 +26,10 @@ This directory owns LangGraph behavior, LLM/tool orchestration, TMDB filtering, 
 
 ## LLM And Tools
 - Chat models are initialized in `graph.py`; search grounding is called directly in `tools.py`.
-- Be careful with Gemini API-version, retry, and SDK changes. Verify with Docker versions, not only local `uv`.
+- OpenAI is the active LLM/search provider. Keep `LLM_PROVIDER`, `OPENAI_MODEL_FAST`, `OPENAI_MODEL_RESEARCH`, and `OPENAI_WEB_SEARCH_CONTEXT` synchronized across code, Docker, docs, and tests.
 - `filter_streaming_providers` expects candidate titles and real streaming providers.
 - `search_public_mediatheken` should restrict evidence to public broadcaster domains such as ARD, ZDF, Arte, and 3sat.
-- Existing structured error returns for Google search should prevent chat crashes. Preserve this behavior.
+- Existing structured error returns for web search should prevent chat crashes. Preserve this behavior.
 
 ## Persistence And Migrations
 - Supabase persistence uses REST helpers in `persistence/`; use service role only on the backend.
@@ -44,7 +44,7 @@ This directory owns LangGraph behavior, LLM/tool orchestration, TMDB filtering, 
   - `uv run pytest tests/test_user_filter_preferences_service.py -q`
   - `uv run pytest tests/test_auth_guard.py -q`
 - Run `uv run pytest -q` for graph/tool/persistence changes before final response.
-- Tests should mock external APIs. Do not depend on live Google, TMDB, or Supabase network calls in unit tests.
+- Tests should mock external APIs. Do not depend on live OpenAI, TMDB, or Supabase network calls in unit tests.
 - For backend feature or performance changes validated in Docker, inspect `docker compose logs --tail=200 backend`.
 - For persistence, auth, migration, or schema changes, also inspect `docker compose logs --tail=200 supabase-rest supabase-auth supabase-db supabase-migrations`.
 - Include a short Docker log summary in the final response, or say explicitly if logs could not be checked.

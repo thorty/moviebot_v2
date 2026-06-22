@@ -27,6 +27,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def get_llm_provider() -> str:
+    """Return the configured model provider."""
+    return os.getenv("LLM_PROVIDER", "openai").strip().lower()
+
+
 def _get_llm_model_name(model: Any) -> str:
     for attr_name in ("model", "model_name"):
         model_name = getattr(model, attr_name, None)
@@ -105,19 +110,22 @@ def initialize_analyst_model():
     Initialize model once.
     Called during graph creation to avoid repeated initialization.
     """
+    if get_llm_provider() != "openai":
+        raise RuntimeError("Unsupported LLM_PROVIDER. Configure LLM_PROVIDER=openai.")
+
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_openai import ChatOpenAI
     except ImportError as exc:
         raise RuntimeError(
-            "Google Gemini dependencies are missing. Install langchain-google-genai."
+            "OpenAI dependencies are missing. Install openai and langchain-openai."
         ) from exc
 
-    model_name = os.getenv("GOOGLE_MODEL_ANALYST", "gemini-2.5-flash")
-    analystmodel = ChatGoogleGenerativeAI(
+    model_name = os.getenv("OPENAI_MODEL_FAST", "gpt-5.4-mini")
+    analystmodel = ChatOpenAI(
         model=model_name,
-        google_api_key=get_required_env_value("GOOGLE_API_KEY"),
+        api_key=get_required_env_value("OPENAI_API_KEY"),
         temperature=0.3,     
-        max_output_tokens=2048,          # Genug für Analyse + Folgefragen
+        max_tokens=2048,          # Genug für Analyse + Folgefragen
         top_p=0.9,               # Fokus
     )
     print(f"[MODEL_INIT] ✓ Model initialized: {model_name}")
@@ -128,19 +136,22 @@ def initialize_research_model():
     Initialize model once.
     Called during graph creation to avoid repeated initialization.
     """
+    if get_llm_provider() != "openai":
+        raise RuntimeError("Unsupported LLM_PROVIDER. Configure LLM_PROVIDER=openai.")
+
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_openai import ChatOpenAI
     except ImportError as exc:
         raise RuntimeError(
-            "Google Gemini dependencies are missing. Install langchain-google-genai."
+            "OpenAI dependencies are missing. Install openai and langchain-openai."
         ) from exc
 
-    model_name = os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash")
-    research_model = ChatGoogleGenerativeAI(
+    model_name = os.getenv("OPENAI_MODEL_RESEARCH", "gpt-5.4")
+    research_model = ChatOpenAI(
         model=model_name,
-        google_api_key=get_required_env_value("GOOGLE_API_KEY"),
+        api_key=get_required_env_value("OPENAI_API_KEY"),
         temperature=0.0,
-        max_output_tokens=10000,
+        max_tokens=10000,
         top_p=0.95,
     )
 

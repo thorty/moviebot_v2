@@ -423,7 +423,7 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
             **Step 1: Streaming Candidate Research**
             - Generate 10-15 fitting movie/TV candidates based on: {analystresult}
             - Prefer titles that are plausible for the user's selected providers.
-            - You may use `internet_search_google` for one focused streaming-oriented query.
+            - You may use `internet_search_web` for one focused streaming-oriented query.
             - Call `filter_streaming_providers` with candidate titles in this exact format:
               [
                 {{"title": "Breaking Bad", "media_type": "tv"}},

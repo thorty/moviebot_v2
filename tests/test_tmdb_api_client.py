@@ -23,10 +23,23 @@ class FakeAsyncClient:
 
 
 def _load_tmdb_module(monkeypatch):
-    monkeypatch.setenv("tmdb_bearer", "test-token")
+    monkeypatch.setenv("TMDB_BEARER", "test-token")
     module_name = "backend.utils.tmdb.tmdb_api_client"
     sys.modules.pop(module_name, None)
     return importlib.import_module(module_name)
+
+
+def test_get_movie_form_search_prefers_tmdb_order_for_exact_original_title(monkeypatch):
+    tmdb_api_client = _load_tmdb_module(monkeypatch)
+
+    results = [
+        {"id": 2756, "title": "Abyss - Abgrund des Todes", "original_title": "The Abyss"},
+        {"id": 800753, "title": "The Abyss", "original_title": "The Abyss"},
+    ]
+
+    result = tmdb_api_client.get_movie_form_search(results, "The Abyss", "movie")
+
+    assert result["id"] == 2756
 
 
 def test_get_watch_provider_payload_from_appended_response(monkeypatch):

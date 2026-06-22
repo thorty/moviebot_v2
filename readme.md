@@ -18,7 +18,7 @@ Fullstack MVP (FastAPI + React + Supabase, locally via Docker Compose).
 
 
 ## APIs Used (POC)
-- LLM/Search: Google Gemini with Google Search grounding
+- LLM/Search: OpenAI Responses API with hosted web search
 - Metadata/Provider: TMDB
 - Tracing: LangSmith
 
@@ -79,10 +79,11 @@ The `frontend-web` service intentionally stays active as a placeholder in Task 1
 
 
 ### Required ENV Variables (MVP)
-- `GOOGLE_API_KEY`
-- `GOOGLE_MODEL_ANALYST`
-- `GOOGLE_MODEL_RESEARCHER`
-- `GOOGLE_SEARCH_MODEL`
+- `LLM_PROVIDER`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL_FAST`
+- `OPENAI_MODEL_RESEARCH`
+- `OPENAI_WEB_SEARCH_CONTEXT`
 - `TMDB_BEARER`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`

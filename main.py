@@ -80,6 +80,9 @@ class UserFilterPreferencesResponse(BaseModel):
 PROVIDER_QUOTA_ERROR_MESSAGE = (
     "Das KI-Modell-Limit ist gerade erreicht. Bitte warte kurz und versuche es dann erneut."
 )
+PROVIDER_TEMPORARY_ERROR_MESSAGE = (
+    "sorry ich habe leider gerade technische Probleme, versuch es doch später nochmal"
+)
 
 
 @app.on_event("startup")
@@ -180,14 +183,47 @@ def stringify_message_content(content: Any) -> str:
 
 
 def is_provider_quota_error(exc: Exception) -> bool:
-    error_text = str(exc)
+    error_text = f"{exc.__class__.__module__} {exc.__class__.__name__} {exc}"
+    lowered = error_text.lower()
     return (
-        "429" in error_text
+        ("429" in error_text or "ratelimiterror" in lowered or "rate limit" in lowered)
         and (
-            "RESOURCE_EXHAUSTED" in error_text
-            or "quota" in error_text.lower()
-            or "rate-limit" in error_text.lower()
+            "resource_exhausted" in lowered
+            or "quota" in lowered
+            or "rate-limit" in lowered
+            or "rate limit" in lowered
+            or "too many requests" in lowered
         )
+    )
+
+
+def is_provider_temporary_error(exc: Exception) -> bool:
+    error_text = f"{exc.__class__.__module__} {exc.__class__.__name__} {exc}"
+    lowered = error_text.lower()
+    temporary_signals = (
+        "500",
+        "502",
+        "503",
+        "504",
+        "apitimeouterror",
+        "apiconnectionerror",
+        "internalservererror",
+        "service unavailable",
+        "timeout",
+        "timed out",
+        "deadline_exceeded",
+        "connection error",
+    )
+    provider_signals = (
+        "openai",
+        "langchain_openai",
+        "llm",
+        "model",
+        "responses",
+    )
+
+    return any(signal in lowered for signal in temporary_signals) and any(
+        signal in lowered for signal in provider_signals
     )
 
 
@@ -238,6 +274,16 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         result = app_graph.invoke(graph_input, config)
     except Exception as exc:
         duration_ms = (time.perf_counter() - start_time) * 1000
+        if is_provider_temporary_error(exc):
+            logger.warning(
+                "[CHAT_GRAPH_TEMPORARY_PROVIDER_ERROR] user_id=%s conversation_id=%s duration_ms=%.1f error_type=%s",
+                user_id,
+                conversation_id,
+                duration_ms,
+                exc.__class__.__name__,
+            )
+            return PROVIDER_TEMPORARY_ERROR_MESSAGE
+
         logger.exception(
             "[CHAT_GRAPH_ERROR] user_id=%s conversation_id=%s duration_ms=%.1f error_type=%s",
             user_id,

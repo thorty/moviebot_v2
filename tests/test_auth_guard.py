@@ -4,7 +4,14 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from langchain_core.messages import AIMessage
 
-from main import ChatRequest, UserFilterPreferencesPayload, _normalize_filter_payload, app, invoke_user_chat
+from main import (
+    PROVIDER_TEMPORARY_ERROR_MESSAGE,
+    ChatRequest,
+    UserFilterPreferencesPayload,
+    _normalize_filter_payload,
+    app,
+    invoke_user_chat,
+)
 
 
 client = TestClient(app)
@@ -224,7 +231,7 @@ def test_chat_returns_429_for_provider_quota_error(monkeypatch) -> None:
     )
 
     def fake_invoke_user_chat(user_id, conversation_id, payload):
-        raise RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded for gemini-2.5-flash")
+        raise RuntimeError("429 RateLimitError: quota exceeded for gpt-5.4")
 
     monkeypatch.setattr("main.invoke_user_chat", fake_invoke_user_chat)
 
@@ -244,6 +251,22 @@ def test_chat_returns_429_for_provider_quota_error(monkeypatch) -> None:
 
     assert response.status_code == 429
     assert response.json()["detail"] == "Das KI-Modell-Limit ist gerade erreicht. Bitte warte kurz und versuche es dann erneut."
+
+
+def test_invoke_user_chat_returns_friendly_message_for_temporary_provider_error(monkeypatch) -> None:
+    class FakeGraph:
+        def invoke(self, graph_input, config):
+            raise RuntimeError("openai APITimeoutError: Request timed out")
+
+    monkeypatch.setattr("main.get_graph_app", lambda: FakeGraph())
+
+    reply = invoke_user_chat(
+        user_id="user-1",
+        conversation_id="conv-1",
+        payload=ChatRequest(message="Was soll ich schauen?"),
+    )
+
+    assert reply == PROVIDER_TEMPORARY_ERROR_MESSAGE
 
 
 def test_invoke_user_chat_stringifies_structured_ai_content(monkeypatch) -> None:

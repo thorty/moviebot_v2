@@ -127,7 +127,7 @@ services:
       PG_META_CRYPTO_KEY: ${SUPABASE_PG_META_CRYPTO_KEY:-dev-pg-meta-crypto-key-at-least-32-characters}
       DEFAULT_ORGANIZATION_NAME: ${SUPABASE_STUDIO_ORG:-Moviebot}
       DEFAULT_PROJECT_NAME: ${SUPABASE_STUDIO_PROJECT:-Moviebot Local}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       SUPABASE_URL: http://supabase-kong:8000
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:54321}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
@@ -196,10 +196,11 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-dev-super-secret-jwt-token-with-at-least-32-characters}
       FRONTEND_WEB_URL: ${FRONTEND_WEB_URL:-http://localhost:3000}
       BACKEND_API_URL: ${BACKEND_API_URL:-http://localhost:8000}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      GOOGLE_MODEL_ANALYST: ${GOOGLE_MODEL_ANALYST:-gemini-2.5-flash}
-      GOOGLE_MODEL_RESEARCHER: ${GOOGLE_MODEL_RESEARCHER:-gemini-2.5-flash}
-      GOOGLE_SEARCH_MODEL: ${GOOGLE_SEARCH_MODEL:-gemini-2.5-flash}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL_FAST: ${OPENAI_MODEL_FAST:-gpt-5.4-mini}
+      OPENAI_MODEL_RESEARCH: ${OPENAI_MODEL_RESEARCH:-gpt-5.4}
+      OPENAI_WEB_SEARCH_CONTEXT: ${OPENAI_WEB_SEARCH_CONTEXT:-low}
     volumes:
       - ./:/workspace
     ports:

@@ -1,13 +1,13 @@
 import requests
 import os, sys
 from pathlib import Path
-from dotenv import load_dotenv
 from difflib import get_close_matches
 import json
 
 # Add parent directory to path for backend module import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from backend.utils.setupenv import get_required_env_value, load_environment
 from backend.utils.helper import get_streaming_providers_tmdb
 
 
@@ -52,8 +52,8 @@ def find_movie(title: str):
 
 
 if __name__ == '__main__':
-    load_dotenv()
-    headers = {'accept': 'application/json', 'Authorization': os.environ['tmdb_bearer']}    
+    load_environment()
+    headers = {'accept': 'application/json', 'Authorization': get_required_env_value('TMDB_BEARER')}    
     
     #main('TRON: Uprising')
-    get_streaming_providers_tmdb(['Underworld'])
+    get_streaming_providers_tmdb(['The Abyss'])

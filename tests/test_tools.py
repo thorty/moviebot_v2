@@ -4,11 +4,10 @@ Tests the streaming filter and search tools
 """
 
 import pytest
-from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from backend.tools import (
     filter_streaming_providers,
-    internet_search_google,
+    internet_search_web,
     search_public_mediatheken,
 )
 
@@ -261,86 +260,102 @@ class TestFilterStreamingProviders:
         assert '15 titles' in captured.out
 
 
-class TestInternetSearchGoogle:
-    """Tests for internet_search_google tool"""
+class OpenAIResponseStub:
+    def __init__(self, output_text: str, sources: list[dict] | None = None):
+        self.output_text = output_text
+        self.sources = sources or []
+
+    def model_dump(self):
+        return {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": self.output_text,
+                            "annotations": self.sources,
+                        }
+                    ],
+                }
+            ]
+        }
+
+
+class TestInternetSearchWeb:
+    """Tests for internet_search_web tool"""
     
-    @patch('backend.tools._run_google_grounded_search')
-    def test_search_returns_compact_answer(self, mock_grounded_search):
+    @patch('backend.tools._run_openai_web_search')
+    def test_search_returns_compact_answer(self, mock_web_search):
         """Test successful search with results"""
-        mock_response = Mock(text="Search results for cyberpunk films", candidates=[])
-        mock_grounded_search.return_value = mock_response
+        mock_response = OpenAIResponseStub("Search results for cyberpunk films")
+        mock_web_search.return_value = mock_response
         
-        result = internet_search_google.invoke({'query': 'cyberpunk films'})
+        result = internet_search_web.invoke({'query': 'cyberpunk films'})
         
         assert result["query"] == "cyberpunk films"
         assert result["answer"] == "Search results for cyberpunk films"
         assert result["results"] == []
-        mock_grounded_search.assert_called_once_with("cyberpunk films")
+        mock_web_search.assert_called_once_with("cyberpunk films")
     
-    @patch('backend.tools._run_google_grounded_search')
-    def test_search_with_complex_query(self, mock_grounded_search):
+    @patch('backend.tools._run_openai_web_search')
+    def test_search_with_complex_query(self, mock_web_search):
         """Test search with complex query string"""
-        mock_response = Mock(text="Complex search results", candidates=[])
-        mock_grounded_search.return_value = mock_response
+        mock_response = OpenAIResponseStub("Complex search results")
+        mock_web_search.return_value = mock_response
         
         query = "best cyberpunk anime films 2020-2024 dystopian"
-        result = internet_search_google.invoke({'query': query})
+        result = internet_search_web.invoke({'query': query})
         
         assert result["query"] == query
         assert result["answer"] == "Complex search results"
-        mock_grounded_search.assert_called_once_with(query)
+        mock_web_search.assert_called_once_with(query)
 
-    @patch('backend.tools._run_google_grounded_search')
-    def test_search_returns_structured_error_on_google_failure(self, mock_grounded_search):
+    @patch('backend.tools._run_openai_web_search')
+    def test_search_returns_structured_error_on_web_failure(self, mock_web_search):
         """Test search failures do not crash the chat request"""
-        mock_grounded_search.side_effect = RuntimeError(
-            "503 UNAVAILABLE. This model is currently experiencing high demand."
+        mock_web_search.side_effect = RuntimeError(
+            "504 DEADLINE_EXCEEDED. The request timed out."
         )
 
-        result = internet_search_google.invoke({'query': 'ARD Mediathek Krimi'})
+        result = internet_search_web.invoke({'query': 'ARD Mediathek Krimi'})
 
         assert result["query"] == "ARD Mediathek Krimi"
         assert result["answer"] == ""
         assert result["results"] == []
-        assert result["error"] == "google_search_unavailable"
-        assert "503 UNAVAILABLE" in result["error_message"]
+        assert result["error"] == "web_search_unavailable"
+        assert "504 DEADLINE_EXCEEDED" in result["error_message"]
 
 
 class TestSearchPublicMediatheken:
-    @patch('backend.tools._run_google_grounded_search')
-    def test_search_adds_public_mediatheken_context(self, mock_grounded_search):
-        mock_response = Mock(text="ARD Mediathek result", candidates=[])
-        mock_grounded_search.return_value = mock_response
+    @patch('backend.tools._run_openai_web_search')
+    def test_search_adds_public_mediatheken_context(self, mock_web_search):
+        mock_response = OpenAIResponseStub("ARD Mediathek result")
+        mock_web_search.return_value = mock_response
 
         result = search_public_mediatheken.invoke({'query': 'Krimi Serie'})
 
         assert result["query"] == "Krimi Serie"
         assert result["answer"] == "ARD Mediathek result"
         assert result["found_count"] == 1
-        called_query = mock_grounded_search.call_args.args[0]
+        called_query = mock_web_search.call_args.args[0]
         assert "ARD Mediathek" in called_query
         assert "ZDF Mediathek" in called_query
         assert "Arte" in called_query
         assert "3sat" in called_query
 
-    @patch('backend.tools._run_google_grounded_search')
-    def test_search_marks_official_mediatheken_deeplink_candidates(self, mock_grounded_search):
+    @patch('backend.tools._run_openai_web_search')
+    def test_search_marks_official_mediatheken_deeplink_candidates(self, mock_web_search):
         official_url = "https://www.ardmediathek.de/video/test-title"
         unofficial_url = "https://www.justwatch.com/de/Serie/test-title"
-        mock_response = SimpleNamespace(
-            text="ARD Mediathek result",
-            candidates=[
-                SimpleNamespace(
-                    grounding_metadata=SimpleNamespace(
-                        grounding_chunks=[
-                            SimpleNamespace(web=SimpleNamespace(uri=official_url, title="Test Title | ARD Mediathek")),
-                            SimpleNamespace(web=SimpleNamespace(uri=unofficial_url, title="Test Title | JustWatch")),
-                        ]
-                    )
-                )
+        mock_response = OpenAIResponseStub(
+            "ARD Mediathek result",
+            sources=[
+                {"url": official_url, "title": "Test Title | ARD Mediathek"},
+                {"url": unofficial_url, "title": "Test Title | JustWatch"},
             ],
         )
-        mock_grounded_search.return_value = mock_response
+        mock_web_search.return_value = mock_response
 
         result = search_public_mediatheken.invoke({'query': 'Krimi Serie'})
 
@@ -352,9 +367,9 @@ class TestSearchPublicMediatheken:
         assert result["results"][1]["is_official_mediathek_source"] is False
         assert result["results"][1]["deeplink_url"] == ""
 
-    @patch('backend.tools._run_google_grounded_search')
-    def test_search_returns_structured_error_on_failure(self, mock_grounded_search):
-        mock_grounded_search.side_effect = RuntimeError("503 UNAVAILABLE")
+    @patch('backend.tools._run_openai_web_search')
+    def test_search_returns_structured_error_on_failure(self, mock_web_search):
+        mock_web_search.side_effect = RuntimeError("504 DEADLINE_EXCEEDED")
 
         result = search_public_mediatheken.invoke({'query': 'Doku Natur'})
 
@@ -362,7 +377,7 @@ class TestSearchPublicMediatheken:
         assert result["answer"] == ""
         assert result["results"] == []
         assert result["found_count"] == 0
-        assert result["error"] == "google_search_unavailable"
+        assert result["error"] == "web_search_unavailable"
 
 
 # Pytest fixtures

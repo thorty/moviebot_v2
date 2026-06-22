@@ -6,14 +6,15 @@ import json
 import os
 import threading
 
-import dotenv
 import httpx
 
-dotenv.load_dotenv()
+from backend.utils.setupenv import get_required_env_value, load_environment
+
+load_environment()
 
 headers = {
     "accept": "application/json",
-    "Authorization": os.environ["tmdb_bearer"],
+    "Authorization": get_required_env_value("TMDB_BEARER"),
 }
 
 TMDB_MAX_CONCURRENCY = max(
@@ -624,28 +625,34 @@ def create_recommendation_data(item):
 def get_movie_form_search(data: dict, search: str, media_type="movie"):
     try:
         if media_type == "tv":
-            titles = [x.get("name", x.get("title", "")) for x in data]
-            original_titles = [x.get("original_name", x.get("original_title", "")) for x in data]
+            get_title = lambda x: x.get("name", x.get("title", ""))
+            get_original_title = lambda x: x.get("original_name", x.get("original_title", ""))
         else:
-            titles = [x.get("title", x.get("name", "")) for x in data]
-            original_titles = [x.get("original_title", x.get("original_name", "")) for x in data]
+            get_title = lambda x: x.get("title", x.get("name", ""))
+            get_original_title = lambda x: x.get("original_title", x.get("original_name", ""))
+
+        search_normalized = normalize_title_for_match(search)
+        if search_normalized:
+            for item in data:
+                if (
+                    normalize_title_for_match(get_title(item)) == search_normalized
+                    or normalize_title_for_match(get_original_title(item)) == search_normalized
+                ):
+                    return item
+
+        titles = [get_title(x) for x in data]
+        original_titles = [get_original_title(x) for x in data]
 
         title_match = closeMatches(titles, search)
         if title_match:
             title = title_match[0]
-            if media_type == "tv":
-                movie = [x for x in data if x.get("name", x.get("title", "")) == title]
-            else:
-                movie = [x for x in data if x.get("title", x.get("name", "")) == title]
+            movie = [x for x in data if get_title(x) == title]
             return movie[0] if movie else None
 
         original_match = closeMatches(original_titles, search)
         if original_match:
             original_title = original_match[0]
-            if media_type == "tv":
-                movie = [x for x in data if x.get("original_name", x.get("original_title", "")) == original_title]
-            else:
-                movie = [x for x in data if x.get("original_title", x.get("original_name", "")) == original_title]
+            movie = [x for x in data if get_original_title(x) == original_title]
             return movie[0] if movie else None
 
         return None
@@ -656,6 +663,10 @@ def get_movie_form_search(data: dict, search: str, media_type="movie"):
 
 def closeMatches(patterns, word):
     return get_close_matches(word, patterns)
+
+
+def normalize_title_for_match(title):
+    return " ".join(str(title or "").casefold().split())
 
 
 def create_data_list(fulldata):

@@ -23,7 +23,8 @@ from backend.utils.setupenv import get_required_env_value, load_environment
 load_environment()
 logger = logging.getLogger(__name__)
 
-GOOGLE_SEARCH_MODEL = os.getenv("GOOGLE_SEARCH_MODEL", os.getenv("GOOGLE_MODEL_RESEARCHER", "gemini-2.5-flash"))
+OPENAI_SEARCH_MODEL = os.getenv("OPENAI_MODEL_RESEARCH", "gpt-5.4")
+OPENAI_WEB_SEARCH_CONTEXT = os.getenv("OPENAI_WEB_SEARCH_CONTEXT", "low")
 SEARCH_SNIPPET_MAX_CHARS = 280
 PUBLIC_MEDIATHEKEN_DOMAINS = {
     "ardmediathek.de": "ARD Mediathek",
@@ -141,79 +142,100 @@ def _enrich_public_mediatheken_source(source: dict[str, str]) -> dict[str, str |
 #     }
 
 
-def _extract_google_grounding_sources(response: Any) -> list[dict[str, str]]:
-    """Extract a Tavily-like compact source list from Gemini grounding metadata."""
+def _response_to_plain_data(response: Any) -> dict[str, Any]:
+    if hasattr(response, "model_dump"):
+        return response.model_dump()
+    if isinstance(response, dict):
+        return response
+    return {}
+
+
+def _extract_openai_web_sources(response: Any) -> list[dict[str, str]]:
+    """Extract a Tavily-like compact source list from OpenAI Responses output."""
     sources: list[dict[str, str]] = []
     seen_urls: set[str] = set()
 
-    candidates = getattr(response, "candidates", None) or []
-    for candidate in candidates:
-        grounding_metadata = getattr(candidate, "grounding_metadata", None)
-        grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None) or []
-        for chunk in grounding_chunks:
-            web_chunk = getattr(chunk, "web", None)
-            if web_chunk is None:
-                continue
+    def add_source(raw_source: dict[str, Any]) -> None:
+        url = str(raw_source.get("url") or raw_source.get("uri") or "").strip()
+        if not url or url in seen_urls:
+            return
 
-            url = str(getattr(web_chunk, "uri", "") or "").strip()
-            if not url or url in seen_urls:
-                continue
+        seen_urls.add(url)
+        sources.append(
+            {
+                "title": str(raw_source.get("title") or raw_source.get("text") or ""),
+                "url": url,
+                "content": str(
+                    raw_source.get("content")
+                    or raw_source.get("snippet")
+                    or raw_source.get("description")
+                    or ""
+                ),
+            }
+        )
 
-            seen_urls.add(url)
-            sources.append(
-                {
-                    "title": str(getattr(web_chunk, "title", "") or ""),
-                    "url": url,
-                    "content": "",
-                }
-            )
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            if value.get("url") or value.get("uri"):
+                add_source(value)
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    visit(_response_to_plain_data(response))
 
     return sources
 
 
-def _run_google_grounded_search(query: str) -> Any:
+def _run_openai_web_search(query: str) -> Any:
     try:
-        from google import genai
-        from google.genai import types
+        from openai import OpenAI
     except ImportError as exc:
         raise RuntimeError(
-            "Google Gemini dependencies are missing. Install google-genai and langchain-google-genai."
+            "OpenAI dependencies are missing. Install openai."
         ) from exc
 
     query_text = str(query or "")
     start_time = time.perf_counter()
     logger.info(
-        "[LLM_GROUNDING_START] model=%s query_chars=%s",
-        GOOGLE_SEARCH_MODEL,
+        "[LLM_WEB_SEARCH_START] model=%s context=%s query_chars=%s",
+        OPENAI_SEARCH_MODEL,
+        OPENAI_WEB_SEARCH_CONTEXT,
         len(query_text),
     )
 
     try:
-        client = genai.Client(api_key=get_required_env_value("GOOGLE_API_KEY"))
-        response = client.models.generate_content(
-            model=GOOGLE_SEARCH_MODEL,
-            contents=query,
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())],
-                temperature=0.2,
-            ),
+        client = OpenAI(api_key=get_required_env_value("OPENAI_API_KEY"))
+        response = client.responses.create(
+            model=OPENAI_SEARCH_MODEL,
+            tools=[
+                {
+                    "type": "web_search",
+                    "search_context_size": OPENAI_WEB_SEARCH_CONTEXT,
+                }
+            ],
+            input=query,
+            temperature=0.2,
+            include=["web_search_call.results"],
         )
     except Exception as exc:
         duration_ms = (time.perf_counter() - start_time) * 1000
         logger.exception(
-            "[LLM_GROUNDING_ERROR] model=%s duration_ms=%.1f error_type=%s",
-            GOOGLE_SEARCH_MODEL,
+            "[LLM_WEB_SEARCH_ERROR] model=%s duration_ms=%.1f error_type=%s",
+            OPENAI_SEARCH_MODEL,
             duration_ms,
             exc.__class__.__name__,
         )
         raise
 
     duration_ms = (time.perf_counter() - start_time) * 1000
-    answer = getattr(response, "text", "") or ""
-    source_count = len(_extract_google_grounding_sources(response))
+    answer = getattr(response, "output_text", "") or ""
+    source_count = len(_extract_openai_web_sources(response))
     logger.info(
-        "[LLM_GROUNDING_END] model=%s duration_ms=%.1f answer_chars=%s sources=%s",
-        GOOGLE_SEARCH_MODEL,
+        "[LLM_WEB_SEARCH_END] model=%s duration_ms=%.1f answer_chars=%s sources=%s",
+        OPENAI_SEARCH_MODEL,
         duration_ms,
         len(answer),
         source_count,
@@ -342,9 +364,9 @@ def filter_streaming_providers(titleList: list[TitleInfo], userstreamingprovider
 #     soup = BeautifulSoup(response.content, 'html.parser')
 #     return soup.get_text()
 
-@tool("internet_search_google", return_direct=False)
-def internet_search_google(query: str) -> Dict[str, Any]:
-    """Searches the internet using Gemini Grounding with Google Search.
+@tool("internet_search_web", return_direct=False)
+def internet_search_web(query: str) -> Dict[str, Any]:
+    """Searches the internet using OpenAI Responses web_search.
     
     Args:
         query (str): The search query.
@@ -354,19 +376,19 @@ def internet_search_google(query: str) -> Dict[str, Any]:
     """
 
     try:
-        response = _run_google_grounded_search(query)
+        response = _run_openai_web_search(query)
     except Exception as exc:
         error_message = str(exc)
-        print(f"[TOOL] Google grounded search failed: {error_message}")
+        print(f"[TOOL] Web search failed: {error_message}")
         return {
             "query": query,
             "answer": "",
             "results": [],
-            "error": "google_search_unavailable",
+            "error": "web_search_unavailable",
             "error_message": _truncate_text(error_message, 500),
         }
 
-    answer = getattr(response, "text", "") or ""
+    answer = getattr(response, "output_text", "") or ""
     return {
         "query": query,
         "answer": _truncate_text(answer, 1200),
@@ -375,7 +397,7 @@ def internet_search_google(query: str) -> Dict[str, Any]:
                 **source,
                 "content": _truncate_text(source.get("content", ""), SEARCH_SNIPPET_MAX_CHARS),
             }
-            for source in _extract_google_grounding_sources(response)
+            for source in _extract_openai_web_sources(response)
         ],
     }
 
@@ -391,7 +413,7 @@ def search_public_mediatheken(query: str) -> Dict[str, Any]:
     ).strip()
 
     try:
-        response = _run_google_grounded_search(mediatheken_query)
+        response = _run_openai_web_search(mediatheken_query)
     except Exception as exc:
         error_message = str(exc)
         print(f"[TOOL] Public mediatheken search failed: {error_message}")
@@ -402,7 +424,7 @@ def search_public_mediatheken(query: str) -> Dict[str, Any]:
             "results": [],
             "official_results": [],
             "found_count": 0,
-            "error": "google_search_unavailable",
+            "error": "web_search_unavailable",
             "error_message": _truncate_text(error_message, 500),
         }
 
@@ -413,10 +435,10 @@ def search_public_mediatheken(query: str) -> Dict[str, Any]:
                 "content": _truncate_text(source.get("content", ""), SEARCH_SNIPPET_MAX_CHARS),
             }
         )
-        for source in _extract_google_grounding_sources(response)
+        for source in _extract_openai_web_sources(response)
     ]
     official_sources = [source for source in sources if source.get("is_official_mediathek_source")]
-    answer = getattr(response, "text", "") or ""
+    answer = getattr(response, "output_text", "") or ""
     return {
         "query": original_query,
         "search_query": mediatheken_query,
@@ -451,9 +473,9 @@ def search_public_mediatheken(query: str) -> Dict[str, Any]:
 # Legacy search-tool group helper.
 # Use this if the graph is split again into search-only and streaming-provider tool groups.
 # def get_search_tools():
-#     return [internet_search_google]
+#     return [internet_search_web]
 #     # With optional page-content extraction:
-#     # return [internet_search_google, process_content]
+#     # return [internet_search_web, process_content]
 #     # Tavily fallback:
 #     # return [internet_search_tavily]
 #     # Tavily with optional page-content extraction:
@@ -483,12 +505,12 @@ def get_tools_for_availability(userstreamingproviders: list[str], include_mediat
         # return [internet_search_tavily]
 
     if should_include_mediatheken:
-        return [internet_search_google, filter_streaming_providers, search_public_mediatheken]
+        return [internet_search_web, filter_streaming_providers, search_public_mediatheken]
 
-    return [internet_search_google, filter_streaming_providers]
+    return [internet_search_web, filter_streaming_providers]
 
 def get_all_tools():
     """Returns all available tools."""
-    return [internet_search_google, filter_streaming_providers, search_public_mediatheken]
+    return [internet_search_web, filter_streaming_providers, search_public_mediatheken]
     # Tavily fallback:
     # return [internet_search_tavily, filter_streaming_providers]

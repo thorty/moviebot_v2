@@ -9,14 +9,16 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: GOOGLE_API_KEY
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
         sync: false
-      - key: GOOGLE_MODEL_ANALYST
-        value: gemini-2.5-flash
-      - key: GOOGLE_MODEL_RESEARCHER
-        value: gemini-2.5-flash
-      - key: GOOGLE_SEARCH_MODEL
-        value: gemini-2.5-flash
+      - key: OPENAI_MODEL_FAST
+        value: gpt-5.4-mini
+      - key: OPENAI_MODEL_RESEARCH
+        value: gpt-5.4
+      - key: OPENAI_WEB_SEARCH_CONTEXT
+        value: low
       - key: TMDB_BEARER
         sync: false
       - key: SUPABASE_URL

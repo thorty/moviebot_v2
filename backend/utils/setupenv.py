@@ -8,10 +8,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_PATH = PROJECT_ROOT / ".env"
 
 REQUIRED_ENV_GROUPS: dict[str, list[str]] = {
-    "core": ["GOOGLE_API_KEY", "TMDB_BEARER"],
-    "search": ["GOOGLE_API_KEY"],
+    "core": ["TMDB_BEARER"],
+    "search": [],
     "supabase": ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_JWT_SECRET"],
     "app": ["BACKEND_API_URL", "FRONTEND_WEB_URL"],
+}
+
+PROVIDER_REQUIRED_ENV: dict[str, list[str]] = {
+    "openai": ["OPENAI_API_KEY"],
 }
 
 
@@ -39,6 +43,10 @@ def get_missing_required_env(groups: list[str]) -> list[str]:
     required_vars: list[str] = []
     for group in groups:
         required_vars.extend(REQUIRED_ENV_GROUPS.get(group, []))
+
+    if any(group in {"core", "search"} for group in groups):
+        provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+        required_vars.extend(PROVIDER_REQUIRED_ENV.get(provider, []))
 
     unique_required = sorted(set(required_vars))
     return [var for var in unique_required if not os.getenv(var)]
