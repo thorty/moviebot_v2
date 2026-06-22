@@ -466,16 +466,6 @@ def result_validator(state: AgentState):
         f"No-results signal: {no_results_signal}"
     )
     
-    # LLM signaled no results after 3 attempts
-    if no_results_signal:
-        print("[VALIDATOR] ⚠ LLM sent #NO_RESULTS# signal, routing to fallback")
-        result = {
-            "validation_status": "max_retries",
-            "next_agent": "fallback_response"
-        }
-        #log_state("result_validator", {**state, **result}, "EXIT")
-        return result
-    
     # Success: Found titles
     if effective_found_count >= 1:
         print("[VALIDATOR] ✓ Success: Titles found")
@@ -484,6 +474,16 @@ def result_validator(state: AgentState):
             "next_agent": "__END__"
         }
         ##log_state("result_validator", {**state, **result}, "EXIT")
+        return result
+
+    # LLM signaled no results after 3 attempts and no tool found availability.
+    if no_results_signal:
+        print("[VALIDATOR] ⚠ LLM sent #NO_RESULTS# signal, routing to fallback")
+        result = {
+            "validation_status": "max_retries",
+            "next_agent": "fallback_response"
+        }
+        #log_state("result_validator", {**state, **result}, "EXIT")
         return result
     
     # Should not happen, but fallback just in case
@@ -712,9 +712,7 @@ def create_content_researcher(model):
         if isinstance(last_mediatheken_results, dict):
             last_mediatheken_found_count = int(last_mediatheken_results.get("found_count", 0) or 0)
 
-        force_finalize = last_filter_found_count >= 2 and (
-            not include_mediatheken or last_mediatheken_found_count > 0
-        )
+        force_finalize = last_filter_found_count >= 1 or last_mediatheken_found_count >= 1
 
         tools = get_tools_for_availability(userstreamingproviders, include_mediatheken)
         model_with_searchtools = model.bind_tools(tools)
@@ -745,14 +743,15 @@ def create_content_researcher(model):
             base_prompt += blacklist_note
 
         if force_finalize:
+            available_result_count = max(last_filter_found_count, last_mediatheken_found_count)
             finalize_note = f"""
 
         **EARLY STOP ACTIVATED - FINALIZE NOW**
-        - The latest `filter_streaming_providers` result already found {last_filter_found_count} suitable title(s).
-        - You MUST finalize now using only the titles from the latest filter results.
+        - The latest tool result already found {available_result_count} suitable title(s).
+        - You MUST finalize now using only the titles from the latest available tool results.
         - Do NOT call any search or filter tool again.
         - If 4 or more suitable titles exist, output the best 4.
-        - If only 2-3 suitable titles exist, output exactly those 2-3.
+        - If only 1-3 suitable titles exist, output exactly those 1-3.
         - Do not continue searching just to find more titles.
             """
             base_prompt += finalize_note
@@ -767,7 +766,11 @@ def create_content_researcher(model):
                 f"after_prune={len(llm_messages)} removed={removed_count}"
             )
         if force_finalize:
-            print(f"[CONTENT_RESEARCHER] Early stop active with {last_filter_found_count} filtered title(s); finalizing without more tool calls")
+            print(
+                "[CONTENT_RESEARCHER] Early stop active with "
+                f"filter_found={last_filter_found_count} mediatheken_found={last_mediatheken_found_count}; "
+                "finalizing without more tool calls"
+            )
 
         # Keep using the tool-bound model even during forced finalization.
         # Anthropic-compatible backends reject histories containing tool messages

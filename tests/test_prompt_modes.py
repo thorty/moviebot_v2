@@ -12,6 +12,8 @@ def test_build_content_researcher_prompt_uses_streaming_mode() -> None:
     assert mode == "streaming"
     assert "filter_streaming_providers" in prompt
     assert "search_public_mediatheken" not in prompt
+    assert "Generate 25-35 fitting titles" in prompt
+    assert "below 25 titles" in prompt
 
 
 def test_build_content_researcher_prompt_uses_mediatheken_mode() -> None:
@@ -28,6 +30,20 @@ def test_build_content_researcher_prompt_uses_mediatheken_mode() -> None:
     assert "filter_streaming_providers" not in prompt
 
 
+def test_build_content_researcher_prompt_uses_larger_single_provider_candidate_list() -> None:
+    prompt, mode = build_content_researcher_prompt(
+        ["Netflix"],
+        include_mediatheken=False,
+        analystresult="Unterwasser Sci-Fi",
+        paymenttypes=["free"],
+    )
+
+    assert mode == "single_provider"
+    assert "Generate 20-30 VERY WELL-KNOWN titles" in prompt
+    assert "25-40 titles in the first pass" in prompt
+    assert "below 25 titles" in prompt
+
+
 def test_build_content_researcher_prompt_uses_combined_mode() -> None:
     prompt, mode = build_content_researcher_prompt(
         ["Netflix"],
@@ -42,3 +58,5 @@ def test_build_content_researcher_prompt_uses_combined_mode() -> None:
     assert "official_results" in prompt
     assert "deeplink_url" in prompt
     assert "NEVER pass \"Mediatheken\"" in prompt
+    assert "Generate 25-35 fitting movie/TV candidates" in prompt
+    assert "below 25 titles" in prompt

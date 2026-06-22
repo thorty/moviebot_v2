@@ -7,7 +7,7 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             
             **Step 1: Focused Knowledge Base Research**
             - Start with your knowledge of films and series
-            - Generate ONLY 10-15 fitting titles based on: {analystresult}
+            - Generate 25-35 fitting titles based on: {analystresult}
             - **WICHTIG: Priorisiere Titel die häufig in Flatrate-Angeboten sind**
             - Mix of: Blockbusters (30%), Hidden Gems (40%), Cult Classics (20%), Recent Releases (10%)
             - Consider different:
@@ -27,11 +27,11 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
               • Platform-hints: "best [genre] streaming recommendations"
             - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd
             - Avoid: werstreamtes.de
-            - GOAL: Collect 10-20 titles total before the first filtering pass
+            - GOAL: Collect 30-45 titles total before the first filtering pass
             - Only broaden the search if the first filter result is weak
             
             **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
-            - Combine knowledge + web results (aim for 10-20 titles in the first pass)
+            - Combine knowledge + web results (aim for 30-45 titles in the first pass)
             - Remove duplicates, assess relevance
             - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
               [
@@ -45,28 +45,29 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             - **CRITICAL:** Use these exact providers and payment types:
               → userstreamingproviders: {', '.join(userstreamingproviders)}
               → paymenttypes: {', '.join(paymenttypes)}              
-            - Use `filter_streaming_providers` with the focused candidate list
+            - Use `filter_streaming_providers` with the full focused candidate list.
+            - **Do not trim the first filter call below 25 titles unless fewer than 25 genuinely relevant titles exist.**
             - **WICHTIG - Retry-Limit:**
               • If >=4 suitable titles after first filter: STOP immediately and produce final user output
-              • If 2-3 suitable titles after first filter: STOP immediately and output those 2-3 titles
-              • If <2 suitable titles after first filter: Try ONCE more with broader search
-              • If still <2 titles: Try ONE final time with very broad search (other genres/years)
+              • If 1-3 suitable titles after first filter: STOP immediately and output those 1-3 titles
+              • If 0 suitable titles after first filter: Try ONCE more with broader search
+              • If still 0 titles: Try ONE final time with very broad search (other genres/years)
               • Maximum 3 attempts total (1 initial + 2 retries)
               • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
-              • **Do NOT run additional search or filter calls after found_count >= 2**
+              • **Do NOT run additional search or filter calls after found_count >= 1**
               • **Never treat already found candidates as blacklist within the same run**
             
             ### Final Output Format (What the user sees) ###
             
-            **If you found ≥2 suitable titles after filtering:**
+            **If you found ≥1 suitable titles after filtering:**
             Present exactly 4 high-quality recommendations in this format:
 
             **Early-stop output rule (MANDATORY):**
-            - As soon as you have >=2 suitable titles from filter results, finalize immediately.
+            - As soon as you have >=1 suitable title from filter results, finalize immediately.
             - Prefer outputting 4 recommendations.
-            - If only 2-3 suitable titles are available, output those 2-3 (do not continue searching just to reach 4).
+            - If only 1-3 suitable titles are available, output those 1-3 (do not continue searching just to reach 4).
             
-            **If you found <2 suitable titles after 3 attempts:**
+            **If you found 0 suitable titles after 3 attempts:**
             Send only: "#NO_RESULTS#" (The system will handle the fallback response)
             
             **Regular Output Format (when results found):**
@@ -155,7 +156,7 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         ### Your Research Process (Internal - Don't show these steps) ###
 
         **Step 1: MINIMAL Knowledge Base Research**
-        - Generate ONLY 8-12 VERY WELL-KNOWN titles from your knowledge that are LIKELY available on {userstreamingprovider}
+        - Generate 20-30 VERY WELL-KNOWN titles from your knowledge that are LIKELY available on {userstreamingprovider}
         - Focus ONLY on major blockbusters and popular series that streaming services typically have
         - **KRITISCH: Verwende dein Wissen nur minimal - die Verfügbarkeit ändert sich ständig!**
         - Examples of likely titles: Major franchise titles and widely known catalog hits on the selected provider.
@@ -172,11 +173,11 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
           • "Aktuelle {userstreamingprovider} Highlights [relevante Keywords]"
         - Search these websites: moviepilot.de, imdb.com, ranker.com, letterboxd, justwatch
         - Avoid: werstreamtes.de
-        - **GOAL: Collect 10-18 titles in the first pass PRIMARILY from web research (web = 80%, knowledge = 20%)**
+        - **GOAL: Collect 25-40 titles in the first pass PRIMARILY from web research (web = 80%, knowledge = 20%)**
         - Only broaden to more queries if the first filter result is weak
 
         **Step 3: Filtering & Validation - MAXIMUM 3 ATTEMPTS**
-        - Combine knowledge + web results (aim for 10-18 titles in the first pass, PRIORITIZE web research results)
+        - Combine knowledge + web results (aim for 25-40 titles in the first pass, PRIORITIZE web research results)
         - Remove duplicates, assess relevance
         - **WICHTIG: Da du provider-spezifisch gesucht hast, sollten mehr Titel verfügbar sein!**
         - **CRITICAL FORMAT:** When calling `filter_streaming_providers` tool, provide titles in this exact format:
@@ -191,26 +192,27 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         - **CRITICAL:** When calling `filter_streaming_providers` tool, use ONLY this provider and specified payment types:
           → userstreamingproviders: ["{userstreamingprovider}"]
           → paymenttypes: {', '.join(paymenttypes)}
-        - Use `filter_streaming_providers` with the focused candidate list
+        - Use `filter_streaming_providers` with the full focused candidate list.
+        - **Do not trim the first filter call below 25 titles unless fewer than 25 genuinely relevant titles exist.**
         - **WICHTIG - Retry-Limit:**
           • If >=4 suitable titles after first filter: STOP immediately and produce final user output
-          • If 2-3 suitable titles after first filter: STOP immediately and output those 2-3 titles
-          • If <2 suitable titles after first filter: Try ONCE more with MORE SPECIFIC web search for "{userstreamingprovider} verfügbar"
-          • If still <2 titles: Try ONE final time with very broad "{userstreamingprovider}" search (any genre)
+          • If 1-3 suitable titles after first filter: STOP immediately and output those 1-3 titles
+          • If 0 suitable titles after first filter: Try ONCE more with MORE SPECIFIC web search for "{userstreamingprovider} verfügbar"
+          • If still 0 titles: Try ONE final time with very broad "{userstreamingprovider}" search (any genre)
           • Maximum 3 attempts total (1 initial + 2 retries)
           • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
-          • **Do NOT run additional search or filter calls after found_count >= 2**
+          • **Do NOT run additional search or filter calls after found_count >= 1**
           • **Never treat already found candidates as blacklist within the same run**
 
         ### Final Output Format (What the user sees) ###
 
-        **If you found ≥2 suitable titles after filtering:**
+        **If you found ≥1 suitable titles after filtering:**
         Present exactly 4 high-quality recommendations in this format:
 
         **Early-stop output rule (MANDATORY):**
-        - As soon as you have >=2 suitable titles from filter results, finalize immediately.
+        - As soon as you have >=1 suitable title from filter results, finalize immediately.
         - Prefer outputting 4 recommendations.
-        - If only 2-3 suitable titles are available, output those 2-3 (do not continue searching just to reach 4).
+        - If only 1-3 suitable titles are available, output those 1-3 (do not continue searching just to reach 4).
 
         *[kurzes intro mit den nutzerinteressen]*
 
@@ -343,22 +345,22 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
         
         - **WICHTIG - Retry-Limit:**
           • If >=4 relevant validated titles are available after the first pass: STOP immediately and produce final user output
-          • If 2-3 relevant validated titles are available after the first pass: STOP immediately and output those 2-3 titles
-          • If <2 relevant titles after validation: Try ONCE more with broader genre search
-          • If still <2 titles: Try ONE final time with alternative genres or "Kultur" as fallback
+          • If 1-3 relevant validated titles are available after the first pass: STOP immediately and output those 1-3 titles
+          • If 0 relevant titles after validation: Try ONCE more with broader genre search
+          • If still 0 titles: Try ONE final time with alternative genres or "Kultur" as fallback
           • Maximum 3 attempts total (1 initial + 2 retries)
           • After 3 failed attempts: Send "#NO_RESULTS#" and stop searching
-          • **Do NOT continue searching after reaching >=2 relevant validated titles**
+          • **Do NOT continue searching after reaching >=1 relevant validated title**
 
         ### Final Output Format (What the user sees) ###
 
-        **If you found ≥2 relevant titles after validation:**
+        **If you found ≥1 relevant titles after validation:**
         Present exactly 4 high-quality recommendations in this format:
 
         **Early-stop output rule (MANDATORY):**
-        - As soon as >=2 relevant validated titles are available, finalize immediately.
+        - As soon as >=1 relevant validated title is available, finalize immediately.
         - Prefer outputting 4 recommendations.
-        - If only 2-3 strong matches are available, output those 2-3 (do not continue searching just to reach 4).
+        - If only 1-3 strong matches are available, output those 1-3 (do not continue searching just to reach 4).
 
         *[kurzes intro - erwähne die ausgewählten Genres und das Nutzerinteresse]*
 
@@ -421,7 +423,7 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
             ### Your Research Process (Internal - Don't show these steps) ###
 
             **Step 1: Streaming Candidate Research**
-            - Generate 10-15 fitting movie/TV candidates based on: {analystresult}
+            - Generate 25-35 fitting movie/TV candidates based on: {analystresult}
             - Prefer titles that are plausible for the user's selected providers.
             - You may use `internet_search_web` for one focused streaming-oriented query.
             - Call `filter_streaming_providers` with candidate titles in this exact format:
@@ -432,6 +434,7 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
             - Use exactly:
               userstreamingproviders: {', '.join(userstreamingproviders)}
               paymenttypes: {', '.join(paymenttypes)}
+            - Do not trim the first `filter_streaming_providers` call below 25 titles unless fewer than 25 genuinely relevant titles exist.
 
             **Step 2: Public Mediatheken Research**
             - Call `search_public_mediatheken` with a query based on the same user interest.
@@ -444,7 +447,7 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
             - Merge streaming results and public media library results.
             - Deduplicate identical titles across sources; if a title appears in both, mention both availability sources.
             - Prefer the best 4 recommendations overall.
-            - If only 2-3 strong matches exist, output those 2-3.
+            - If only 1-3 strong matches exist, output those 1-3.
             - If no streaming titles and no mediatheken titles are available after the allowed attempts, send only: "#NO_RESULTS#".
             - Do not continue searching after you have enough results from both source families.
 
