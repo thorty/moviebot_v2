@@ -75,7 +75,8 @@ def get_content_researcher_prompt(userstreamingproviders, analystresult, payment
             *[kurzes intro mit den nutzerinteressen]*
             
             ![Titel Cover](poster_url from filter_streaming_providers, only if present)
-            🎬 **[Titel] ([Jahr])** [Serie/Film]
+            🎬 **[Titel] ([Jahr])** [Film/Serie/Doku]
+            → Replace the type placeholder with exactly one of: [Film], [Serie], [Doku]
             **TMDB-Bewertung:** [vote_average]/10 ([vote_count] Stimmen) (only if vote_average > 0)
             *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
             
@@ -217,7 +218,8 @@ def get_content_researcher_prompt_single_provider(userstreamingprovider, analyst
         *[kurzes intro mit den nutzerinteressen]*
 
         ![Titel Cover](poster_url from filter_streaming_providers, only if present)
-        🎬 **[Titel] ([Jahr])**
+        🎬 **[Titel] ([Jahr])** [Film/Serie/Doku]
+        → Replace the type placeholder with exactly one of: [Film], [Serie], [Doku]
         **TMDB-Bewertung:** [vote_average]/10 ([vote_count] Stimmen) (only if vote_average > 0)
         *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
 
@@ -364,7 +366,8 @@ def get_content_researcher_prompt_mediatheken(userstreamingprovider, analystresu
 
         *[kurzes intro - erwähne die ausgewählten Genres und das Nutzerinteresse]*
 
-        🎬 **[Titel] ([Jahr wenn bekannt])**
+        🎬 **[Titel] ([Jahr wenn bekannt])** [Film/Serie/Doku]
+        → Replace the type placeholder with exactly one of: [Film], [Serie], [Doku]
         *[Kurze Beschreibung warum es zur Anfrage passt - verwende Info aus der Web-Recherche]*
 
         **Verfügbar in:**
@@ -456,7 +459,8 @@ def get_content_researcher_prompt_combined(userstreamingproviders, analystresult
             *[kurzes intro mit den Nutzerinteressen]*
 
             ![Titel Cover](poster_url from filter_streaming_providers, only if present)
-            🎬 **[Titel] ([Jahr wenn bekannt])** [Serie/Film/Doku]
+            🎬 **[Titel] ([Jahr wenn bekannt])** [Film/Serie/Doku]
+            → Replace the type placeholder with exactly one of: [Film], [Serie], [Doku]
             **TMDB-Bewertung:** [vote_average]/10 ([vote_count] Stimmen) (only for TMDB-backed streaming results with vote_average > 0)
             *[Kurze, prägnante Beschreibung warum es zur Anfrage passt]*
 

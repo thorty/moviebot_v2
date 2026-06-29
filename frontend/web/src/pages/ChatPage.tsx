@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Bot, LogOut, MessageCircle, Plus, SlidersHorizontal } from "lucide-react"
+import { Bookmark, Bot, Film, ImageOff, LogOut, MessageCircle, Plus, SlidersHorizontal, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { ChatInput } from "@/components/chat/ChatInput"
@@ -7,7 +7,17 @@ import { ChatMessages, type ChatMessage } from "@/components/chat/ChatMessages"
 import { ExamplePrompts } from "@/components/chat/ExamplePrompts"
 import { FilterPanel, type Filters } from "@/components/chat/FilterPanel"
 import { ApiHttpError } from "@/lib/chatApi"
-import { getUserFilters, saveUserFilters, sendChatMessage, startNewChatContext } from "@/lib/chatApi"
+import {
+  deleteWatchlistItem,
+  getUserFilters,
+  getWatchlist,
+  saveUserFilters,
+  saveWatchlistItem,
+  sendChatMessage,
+  startNewChatContext,
+  type RecommendationCandidate,
+  type WatchlistItem,
+} from "@/lib/chatApi"
 
 // Fallback UUID generator für Browser ohne crypto.randomUUID() (z.B. Firefox über HTTP)
 function generateUUID(): string {
@@ -56,6 +66,16 @@ const normalizeFiltersForUi = (filters: Filters): Filters => {
   }
 }
 
+const WATCHLIST_MEDIA_LABELS: Record<WatchlistItem["media_type"], string> = {
+  movie: "Film",
+  documentary: "Doku",
+  series: "Serie",
+}
+
+const getWatchlistKey = (item: Pick<WatchlistItem | RecommendationCandidate, "title" | "media_type">) => {
+  return `${item.media_type}:${item.title.trim().toLowerCase()}`
+}
+
 const LOADING_HINTS = [
   "suche nach den besten Treffern ",
   "durchsuche Videotheken ",
@@ -66,6 +86,8 @@ const LOADING_HINTS = [
 ]
 
 const GENERIC_BACKEND_500_MESSAGE = "Sorry da ist leider etwas schief gegangen. Versuch es gerne erneut."
+
+type ActiveView = "chat" | "watchlist"
 
 type ChatPageProps = {
   userEmail?: string
@@ -80,6 +102,11 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [loadingHint, setLoadingHint] = useState(LOADING_HINTS[0])
   const [isResetting, setIsResetting] = useState(false)
+  const [activeView, setActiveView] = useState<ActiveView>("chat")
+  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
+  const [watchlistError, setWatchlistError] = useState("")
+  const [savingRecommendationKeys, setSavingRecommendationKeys] = useState<string[]>([])
+  const [deletingWatchlistItemIds, setDeletingWatchlistItemIds] = useState<string[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const hasMessages = messages.length > 0
@@ -157,6 +184,32 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   }, [userEmail])
 
   useEffect(() => {
+    let isCancelled = false
+
+    const loadWatchlist = async () => {
+      try {
+        const stored = await getWatchlist()
+        if (isCancelled) {
+          return
+        }
+        setWatchlistItems(stored.items)
+        setWatchlistError("")
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+        setWatchlistError(error instanceof Error ? error.message : "Merkliste konnte nicht geladen werden.")
+      }
+    }
+
+    void loadWatchlist()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [userEmail])
+
+  useEffect(() => {
     if (!isLoading) {
       return
     }
@@ -179,6 +232,18 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
   const activeFilterCount = useMemo(() => {
     return filters.providers.length + (filters.providers.length > 0 ? filters.paymentTypes.length : 0) + (filters.includeMediatheken ? 1 : 0)
   }, [filters])
+
+  const watchlistKeys = useMemo(() => {
+    return new Set(watchlistItems.map(getWatchlistKey))
+  }, [watchlistItems])
+
+  const savingRecommendationKeySet = useMemo(() => {
+    return new Set(savingRecommendationKeys)
+  }, [savingRecommendationKeys])
+
+  const deletingWatchlistItemIdSet = useMemo(() => {
+    return new Set(deletingWatchlistItemIds)
+  }, [deletingWatchlistItemIds])
 
   const appendConversation = useCallback(async (userText: string) => {
     const userMessage: ChatMessage = {
@@ -221,6 +286,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         id: generateUUID(),
         role: "assistant",
         content: response.reply || "Ich habe aktuell keine Antwort erhalten.",
+        recommendations: response.recommendations || [],
       }
       setMessages((current) => [...current, botMessage])
     } catch (error) {
@@ -242,7 +308,7 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       }
     }
-  }, [buildRequestFilters, filters])
+  }, [buildRequestFilters, filters, userEmail])
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim()
@@ -291,6 +357,55 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
     }
   }, [isLoading, isResetting])
 
+  const handleSaveRecommendation = useCallback(async (recommendation: RecommendationCandidate) => {
+    const recommendationKey = getWatchlistKey(recommendation)
+    if (watchlistKeys.has(recommendationKey) || savingRecommendationKeySet.has(recommendationKey)) {
+      return
+    }
+
+    setSavingRecommendationKeys((current) => current.includes(recommendationKey) ? current : [...current, recommendationKey])
+    setWatchlistError("")
+
+    try {
+      const response = await saveWatchlistItem({
+        title: recommendation.title,
+        media_type: recommendation.media_type,
+        description: recommendation.description,
+        cover_url: recommendation.cover_url,
+        rating: recommendation.rating,
+        rating_source: recommendation.rating_source,
+        streaming_providers: recommendation.streaming_providers,
+      })
+
+      setWatchlistItems((current) => {
+        const savedKey = getWatchlistKey(response.item)
+        return [response.item, ...current.filter((item) => getWatchlistKey(item) !== savedKey)]
+      })
+    } catch (error) {
+      setWatchlistError(error instanceof Error ? error.message : "Titel konnte nicht gemerkt werden.")
+    } finally {
+      setSavingRecommendationKeys((current) => current.filter((key) => key !== recommendationKey))
+    }
+  }, [savingRecommendationKeySet, watchlistKeys])
+
+  const handleDeleteWatchlistItem = useCallback(async (item: WatchlistItem) => {
+    if (deletingWatchlistItemIdSet.has(item.id)) {
+      return
+    }
+
+    setDeletingWatchlistItemIds((current) => current.includes(item.id) ? current : [...current, item.id])
+    setWatchlistError("")
+
+    try {
+      await deleteWatchlistItem(item.id)
+      setWatchlistItems((current) => current.filter((currentItem) => currentItem.id !== item.id))
+    } catch (error) {
+      setWatchlistError(error instanceof Error ? error.message : "Titel konnte nicht entfernt werden.")
+    } finally {
+      setDeletingWatchlistItemIds((current) => current.filter((itemId) => itemId !== item.id))
+    }
+  }, [deletingWatchlistItemIdSet])
+
   return (
     <div className="moviebot-shell relative flex h-dvh flex-col overflow-hidden">
       <header className="relative z-20 flex items-center justify-between border-b border-white/10 bg-black/35 px-4 py-3 backdrop-blur-xl md:px-8">
@@ -306,12 +421,15 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
 
         <div className="flex items-center gap-2 md:gap-4">
           <button
-            onClick={() => setFiltersOpen((current) => !current)}
+            onClick={() => {
+              setActiveView("chat")
+              setFiltersOpen((current) => activeView === "watchlist" ? true : !current)
+            }}
             className={cn(
               "moviebot-header-button",
-              filtersOpen && "border-primary/40 text-foreground shadow-[0_0_20px_hsl(var(--primary)/0.18)]"
+              activeView === "chat" && filtersOpen && "border-primary/40 text-foreground shadow-[0_0_20px_hsl(var(--primary)/0.18)]"
             )}
-            aria-expanded={filtersOpen}
+            aria-expanded={activeView === "chat" && filtersOpen}
           >
             <SlidersHorizontal className="h-4 w-4" />
             <span className="hidden sm:inline">Filter</span>
@@ -323,7 +441,26 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
           </button>
 
           <button
-            onClick={() => void handleNewChat()}
+            onClick={() => setActiveView((current) => current === "watchlist" ? "chat" : "watchlist")}
+            className={cn(
+              "moviebot-header-button",
+              activeView === "watchlist" && "border-primary/40 text-foreground shadow-[0_0_20px_hsl(var(--primary)/0.18)]"
+            )}
+          >
+            <Bookmark className="h-4 w-4" />
+            <span className="hidden sm:inline">Merkliste</span>
+            {watchlistItems.length > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                {watchlistItems.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveView("chat")
+              void handleNewChat()
+            }}
             disabled={isLoading || isResetting}
             className="moviebot-header-button text-primary"
           >
@@ -347,30 +484,154 @@ export function ChatPage({ userEmail, onLogout }: ChatPageProps) {
         </div>
       </header>
 
-      <section className={cn("relative z-10 border-b border-white/5 bg-black/20 px-4 py-4 backdrop-blur-sm md:block", !filtersOpen && "hidden md:block")}>
-        <div className="mx-auto max-w-6xl">
-          <FilterPanel filters={filters} onFiltersChange={setFilters} />
-        </div>
-      </section>
+      {activeView === "chat" && filtersOpen && (
+        <section className="relative z-10 border-b border-white/5 bg-black/20 px-4 py-4 backdrop-blur-sm">
+          <div className="mx-auto max-w-6xl">
+            <FilterPanel filters={filters} onFiltersChange={setFilters} />
+          </div>
+        </section>
+      )}
 
-      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
-        <div className={cn("moviebot-stage mx-auto w-full px-4 md:px-6", hasMessages ? "max-w-4xl py-8" : "max-w-6xl py-5")}>
-          {!hasMessages ? (
-            <ExamplePrompts onSelect={handleExampleSelect} />
-          ) : (
-            <ChatMessages messages={messages} isLoading={isLoading} loadingText={loadingHint} />
-          )}
-        </div>
-      </div>
+      {activeView === "watchlist" ? (
+        <main className="relative z-10 flex-1 overflow-y-auto px-4 py-6 md:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-normal text-primary">Merkliste</p>
+                <h2 className="mt-1 text-2xl font-black text-foreground md:text-3xl">
+                  Gemerkte Titel
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {watchlistItems.length} Titel aus deinen Empfehlungen.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveView("chat")}
+                className="moviebot-header-button self-start sm:self-auto"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Zurück zum Chat
+              </button>
+            </div>
 
-      <div className="relative z-20 px-4 pb-4 pt-2 md:px-6 md:pb-6">
-        <div className="mx-auto max-w-5xl">
-          <ChatInput value={input} onChange={setInput} onSubmit={handleSend} isLoading={isLoading} />
-          <p className="mt-3 text-center text-[11px] text-muted-foreground">
-            Moviebot kann Fehler machen. Verfügbarkeit auf Plattformen kann variieren. (Powered by tmdb)
-          </p>          
-        </div>
-      </div>
+            {watchlistError && (
+              <p className="mb-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {watchlistError}
+              </p>
+            )}
+
+            {watchlistItems.length === 0 ? (
+              <div className="flex min-h-[22rem] flex-col items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-6 text-center">
+                <Film className="mb-4 h-12 w-12 text-primary" />
+                <h3 className="text-lg font-bold text-foreground">Noch keine gemerkten Titel</h3>
+                <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                  Empfehlungen, die du im Chat merkst, erscheinen hier mit Cover und Verfügbarkeiten.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("chat")}
+                  className="moviebot-header-button mt-5"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Zum Chat
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {watchlistItems.map((item) => {
+                  const isDeleting = deletingWatchlistItemIdSet.has(item.id)
+
+                  return (
+                    <article key={item.id} className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                      <div className="relative mx-auto mt-3 aspect-[2/3] w-1/2 overflow-hidden rounded-md bg-black/30">
+                        {item.cover_url ? (
+                          <img
+                            src={item.cover_url}
+                            alt={`${item.title} Cover`}
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <ImageOff className="h-10 w-10" />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteWatchlistItem(item)}
+                          disabled={isDeleting}
+                          className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-black/60 text-white backdrop-blur transition hover:border-red-300/50 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`${item.title} entfernen`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                            {WATCHLIST_MEDIA_LABELS[item.media_type]}
+                          </span>
+                          {item.rating !== null && item.rating !== undefined && (
+                            <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                              {item.rating.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="mt-3 line-clamp-2 text-base font-bold leading-snug text-foreground">
+                          {item.title}
+                        </h3>
+                        <p className="mt-2 line-clamp-4 min-h-[4.5rem] text-sm leading-relaxed text-muted-foreground">
+                          {item.description}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-1.5">
+                          {item.streaming_providers.map((provider) => (
+                            <span
+                              key={`${item.id}-${provider}`}
+                              className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[11px] font-semibold text-muted-foreground"
+                            >
+                              {provider}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </main>
+      ) : (
+        <>
+          <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
+            <div className={cn("moviebot-stage mx-auto w-full px-4 md:px-6", hasMessages ? "max-w-4xl py-8" : "max-w-6xl py-5")}>
+              {!hasMessages ? (
+                <ExamplePrompts onSelect={handleExampleSelect} />
+              ) : (
+                <ChatMessages
+                  messages={messages}
+                  isLoading={isLoading}
+                  loadingText={loadingHint}
+                  watchlistKeys={watchlistKeys}
+                  savingRecommendationKeys={savingRecommendationKeySet}
+                  onSaveRecommendation={handleSaveRecommendation}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="relative z-20 px-4 pb-4 pt-2 md:px-6 md:pb-6">
+            <div className="mx-auto max-w-5xl">
+              <ChatInput value={input} onChange={setInput} onSubmit={handleSend} isLoading={isLoading} />
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                Moviebot kann Fehler machen. Verfügbarkeit auf Plattformen kann variieren. (Powered by tmdb)
+              </p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

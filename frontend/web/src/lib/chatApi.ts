@@ -9,11 +9,24 @@ export type ChatRequestPayload = {
   include_mediatheken: boolean
 }
 
+export type MediaType = "movie" | "documentary" | "series"
+
+export type RecommendationCandidate = {
+  title: string
+  media_type: MediaType
+  description: string
+  cover_url: string | null
+  rating: number | null
+  rating_source: string | null
+  streaming_providers: string[]
+}
+
 export type ChatResponsePayload = {
   status: string
   user_id: string
   conversation_id: string
   reply: string
+  recommendations: RecommendationCandidate[]
 }
 
 export type NewChatResponsePayload = {
@@ -36,6 +49,41 @@ export type UserFilterPreferencesResponse = {
   providers: string[]
   paymenttypes: string[]
   include_mediatheken: boolean
+}
+
+export type WatchlistItemPayload = {
+  title: string
+  media_type: MediaType
+  description: string
+  cover_url: string | null
+  rating: number | null
+  rating_source: string | null
+  streaming_providers: string[]
+}
+
+export type WatchlistItem = WatchlistItemPayload & {
+  id: string
+  user_id: string
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export type WatchlistItemsResponse = {
+  status: string
+  user_id: string
+  items: WatchlistItem[]
+}
+
+export type WatchlistItemResponse = {
+  status: string
+  user_id: string
+  item: WatchlistItem
+}
+
+export type WatchlistDeleteResponse = {
+  status: string
+  user_id: string
+  item_id: string
 }
 
 export class ApiHttpError extends Error {
@@ -150,4 +198,59 @@ export async function saveUserFilters(
   }
 
   return (await response.json()) as UserFilterPreferencesResponse
+}
+
+export async function getWatchlist(): Promise<WatchlistItemsResponse> {
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(`${backendApiUrl}/api/v1/user/watchlist`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw await buildHttpError(response)
+  }
+
+  return (await response.json()) as WatchlistItemsResponse
+}
+
+export async function saveWatchlistItem(payload: WatchlistItemPayload): Promise<WatchlistItemResponse> {
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(`${backendApiUrl}/api/v1/user/watchlist`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw await buildHttpError(response)
+  }
+
+  return (await response.json()) as WatchlistItemResponse
+}
+
+export async function deleteWatchlistItem(itemId: string): Promise<WatchlistDeleteResponse> {
+  const accessToken = await getAccessToken()
+
+  const response = await fetch(`${backendApiUrl}/api/v1/user/watchlist/${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw await buildHttpError(response)
+  }
+
+  return (await response.json()) as WatchlistDeleteResponse
 }

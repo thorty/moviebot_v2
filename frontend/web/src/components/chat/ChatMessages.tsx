@@ -1,7 +1,8 @@
-import { Bot, User } from "lucide-react"
+import { BookmarkPlus, Bot, Check, User } from "lucide-react"
 import { useEffect, useState } from "react"
 import ReactMarkdown from "react-markdown"
 
+import type { RecommendationCandidate } from "@/lib/chatApi"
 import { cn } from "@/lib/utils"
 
 import { LoadingDots } from "./LoadingDots"
@@ -10,15 +11,36 @@ export interface ChatMessage {
   id: string
   role: "user" | "assistant"
   content: string
+  recommendations?: RecommendationCandidate[]
 }
 
 interface ChatMessagesProps {
   messages: ChatMessage[]
   isLoading: boolean
   loadingText?: string
+  watchlistKeys?: Set<string>
+  savingRecommendationKeys?: Set<string>
+  onSaveRecommendation?: (recommendation: RecommendationCandidate) => void
 }
 
-export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesProps) {
+const getRecommendationKey = (recommendation: Pick<RecommendationCandidate, "title" | "media_type">) => {
+  return `${recommendation.media_type}:${recommendation.title.trim().toLowerCase()}`
+}
+
+const MEDIA_TYPE_LABELS: Record<RecommendationCandidate["media_type"], string> = {
+  movie: "Film",
+  documentary: "Doku",
+  series: "Serie",
+}
+
+export function ChatMessages({
+  messages,
+  isLoading,
+  loadingText,
+  watchlistKeys,
+  savingRecommendationKeys,
+  onSaveRecommendation,
+}: ChatMessagesProps) {
   const [typedLoadingText, setTypedLoadingText] = useState("")
   const [dotCount, setDotCount] = useState(0)
 
@@ -86,21 +108,74 @@ export function ChatMessages({ messages, isLoading, loadingText }: ChatMessagesP
                 {isUser ? (
                   <p>{message.content}</p>
                 ) : (
-                  <div className="prose prose-invert max-w-none prose-p:my-3 prose-p:text-foreground prose-li:my-1 prose-li:text-foreground prose-ul:my-3 prose-ol:my-3 prose-headings:my-4 prose-headings:text-foreground prose-strong:text-foreground prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:pl-1 prose-li:marker:text-muted-foreground [&_ul_ul]:my-2 [&_ol_ol]:my-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown
-                      components={{
-                        img: ({ alt, src }) => (
-                          <img
-                            alt={alt ?? ""}
-                            src={src ?? ""}
-                            loading="lazy"
-                            className="my-3 aspect-[2/3] w-28 rounded-md object-cover shadow-sm sm:w-32"
-                          />
-                        ),
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
+                  <div>
+                    <div className="prose prose-invert max-w-none prose-p:my-3 prose-p:text-foreground prose-li:my-1 prose-li:text-foreground prose-ul:my-3 prose-ol:my-3 prose-headings:my-4 prose-headings:text-foreground prose-strong:text-foreground prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:pl-1 prose-li:marker:text-muted-foreground [&_ul_ul]:my-2 [&_ol_ol]:my-2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      <ReactMarkdown
+                        components={{
+                          img: ({ alt, src }) => (
+                            <img
+                              alt={alt ?? ""}
+                              src={src ?? ""}
+                              loading="lazy"
+                              className="my-3 aspect-[2/3] w-28 rounded-md object-cover shadow-sm sm:w-32"
+                            />
+                          ),
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+
+                    {message.recommendations && message.recommendations.length > 0 && (
+                      <div className="mt-4 border-t border-white/10 pt-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+                          Gefundene Titel
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {message.recommendations.map((recommendation) => {
+                            const recommendationKey = getRecommendationKey(recommendation)
+                            const isSaved = Boolean(watchlistKeys?.has(recommendationKey))
+                            const isSaving = Boolean(savingRecommendationKeys?.has(recommendationKey))
+
+                            return (
+                              <div
+                                key={recommendationKey}
+                                className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/20 p-3 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="max-w-full truncate text-sm font-semibold text-foreground">
+                                      {recommendation.title}
+                                    </p>
+                                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                                      {MEDIA_TYPE_LABELS[recommendation.media_type]}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                                    {recommendation.streaming_providers.join(", ")}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => onSaveRecommendation?.(recommendation)}
+                                  disabled={isSaved || isSaving || !onSaveRecommendation}
+                                  className={cn(
+                                    "inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
+                                    isSaved
+                                      ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-200"
+                                      : "border-primary/35 bg-primary/10 text-primary hover:border-primary/60 hover:bg-primary/15",
+                                    (isSaved || isSaving || !onSaveRecommendation) && "cursor-not-allowed opacity-80"
+                                  )}
+                                >
+                                  {isSaved ? <Check className="h-4 w-4" /> : <BookmarkPlus className="h-4 w-4" />}
+                                  {isSaved ? "Gemerkt" : isSaving ? "Speichert" : "Merken"}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

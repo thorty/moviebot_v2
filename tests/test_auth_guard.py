@@ -447,3 +447,209 @@ def test_start_new_chat_with_valid_token_returns_200(monkeypatch) -> None:
     assert body["user_id"] == "user-123"
     assert body["conversation_id"] == "conv-new-123"
     assert reset_calls == ["conversation:conv-old-123", "conversation:conv-new-123"]
+
+
+def test_watchlist_without_token_returns_401() -> None:
+    response = client.get("/api/v1/user/watchlist")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Missing bearer token"
+
+
+def test_get_watchlist_with_valid_token_returns_items(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+    monkeypatch.setattr(
+        "main.list_watchlist_items",
+        lambda user_id, access_token: [
+            {
+                "id": "item-1",
+                "user_id": user_id,
+                "title": "Inception",
+                "media_type": "movie",
+                "description": "Dream heist",
+                "rating": 8.4,
+                "rating_source": "TMDB",
+                "streaming_providers": ["Netflix"],
+            }
+        ],
+    )
+
+    payload = {
+        "sub": "watch-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.get(
+        "/api/v1/user/watchlist",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["items"][0]["title"] == "Inception"
+    assert body["items"][0]["streaming_providers"] == ["Netflix"]
+
+
+def test_save_watchlist_item_with_valid_token_upserts_snapshot(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+
+    captured: dict = {}
+
+    def fake_upsert_watchlist_item(**kwargs):
+        captured.update(kwargs)
+        return {
+            "id": "item-1",
+            "user_id": kwargs["user_id"],
+            "title": kwargs["title"],
+            "media_type": kwargs["media_type"],
+            "description": kwargs["description"],
+            "rating": kwargs["rating"],
+            "rating_source": kwargs["rating_source"],
+            "streaming_providers": kwargs["streaming_providers"],
+        }
+
+    monkeypatch.setattr("main.upsert_watchlist_item", fake_upsert_watchlist_item)
+
+    payload = {
+        "sub": "watch-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.post(
+        "/api/v1/user/watchlist",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Inception",
+            "media_type": "movie",
+            "description": "Dream heist",
+            "rating": 8.4,
+            "rating_source": "TMDB",
+            "streaming_providers": ["Netflix", "Mediatheken", "Netflix"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["item"]["title"] == "Inception"
+    assert captured["title_key"] == "inception"
+    assert captured["streaming_providers"] == ["Netflix"]
+
+
+def test_save_watchlist_item_rejects_invalid_payload(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+
+    def fail_if_called(**kwargs):
+        raise AssertionError("watchlist upsert should not be called")
+
+    monkeypatch.setattr("main.upsert_watchlist_item", fail_if_called)
+
+    payload = {
+        "sub": "watch-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.post(
+        "/api/v1/user/watchlist",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": " ",
+            "media_type": "game",
+            "description": "",
+            "streaming_providers": [],
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_delete_watchlist_item_with_valid_token_returns_deleted(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+
+    monkeypatch.setattr(
+        "main.delete_watchlist_item",
+        lambda user_id, access_token, item_id: {"id": item_id, "user_id": user_id},
+    )
+
+    payload = {
+        "sub": "watch-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.delete(
+        "/api/v1/user/watchlist/item-1",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "deleted"
+
+
+def test_delete_watchlist_item_returns_404_when_missing(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+    monkeypatch.setattr("main.delete_watchlist_item", lambda user_id, access_token, item_id: None)
+
+    payload = {
+        "sub": "watch-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.delete(
+        "/api/v1/user/watchlist/missing",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_chat_does_not_auto_save_recommendations(monkeypatch) -> None:
+    secret = "local-test-secret"
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", secret)
+    monkeypatch.setattr("main.append_message_log", lambda **kwargs: {"id": 1, **kwargs})
+    monkeypatch.setattr(
+        "main.get_or_create_active_conversation",
+        lambda user_id, access_token: {"id": "conv-watch", "user_id": user_id, "status": "active"},
+    )
+    monkeypatch.setattr("main.invoke_user_chat", lambda user_id, conversation_id, payload: "stubbed reply")
+
+    def fail_if_called(**kwargs):
+        raise AssertionError("chat must not upsert watchlist items")
+
+    monkeypatch.setattr("main.upsert_watchlist_item", fail_if_called)
+
+    payload = {
+        "sub": "watch-user-1",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "aud": "authenticated",
+        "role": "authenticated",
+    }
+    token = jwt.encode(payload, secret, algorithm="HS256")
+
+    response = client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"message": "Hi"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["recommendations"] == []

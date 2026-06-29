@@ -18,6 +18,16 @@ from backend.persistence.user_filter_preferences import (
     get_user_filter_preferences,
     upsert_user_filter_preferences,
 )
+from backend.persistence.watchlist_items import (
+    delete_watchlist_item,
+    list_watchlist_items,
+    upsert_watchlist_item,
+)
+from backend.recommendations import (
+    VALID_RECOMMENDATION_MEDIA_TYPES,
+    extract_recommendations_from_reply,
+    normalize_title_key,
+)
 from backend.utils.helper import choose_streaming_providers, split_streaming_and_mediatheken, verify_and_decode_supabase_jwt
 from backend.utils.setupenv import load_environment
 
@@ -55,6 +65,24 @@ class ChatRequest(BaseModel):
     thread_id: str | None = None
 
 
+class RecommendationCandidate(BaseModel):
+    title: str
+    media_type: str
+    description: str
+    cover_url: str | None = None
+    rating: float | None = None
+    rating_source: str | None = None
+    streaming_providers: list[str]
+
+
+class ChatResponse(BaseModel):
+    status: str
+    user_id: str
+    conversation_id: str
+    reply: str
+    recommendations: list[RecommendationCandidate] = []
+
+
 class NewChatResponse(BaseModel):
     status: str
     user_id: str
@@ -77,12 +105,65 @@ class UserFilterPreferencesResponse(BaseModel):
     include_mediatheken: bool = False
 
 
+class WatchlistItemPayload(BaseModel):
+    title: str
+    media_type: str
+    description: str = ""
+    cover_url: str | None = None
+    rating: float | None = None
+    rating_source: str | None = None
+    streaming_providers: list[str] = []
+
+
+class WatchlistItem(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    media_type: str
+    description: str
+    cover_url: str | None = None
+    rating: float | None = None
+    rating_source: str | None = None
+    streaming_providers: list[str]
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class WatchlistItemsResponse(BaseModel):
+    status: str
+    user_id: str
+    items: list[WatchlistItem]
+
+
+class WatchlistItemResponse(BaseModel):
+    status: str
+    user_id: str
+    item: WatchlistItem
+
+
+class WatchlistDeleteResponse(BaseModel):
+    status: str
+    user_id: str
+    item_id: str
+
+
 PROVIDER_QUOTA_ERROR_MESSAGE = (
     "Das KI-Modell-Limit ist gerade erreicht. Bitte warte kurz und versuche es dann erneut."
 )
 PROVIDER_TEMPORARY_ERROR_MESSAGE = (
     "sorry ich habe leider gerade technische Probleme, versuch es doch später nochmal"
 )
+
+
+class ChatInvocationResult(str):
+    """String-compatible chat reply with structured recommendation metadata."""
+
+    recommendations: list[dict[str, Any]]
+
+    def __new__(cls, reply: str, recommendations: list[dict[str, Any]] | None = None):
+        value = str.__new__(cls, reply)
+        value.recommendations = recommendations or []
+        return value
 
 
 @app.on_event("startup")
@@ -282,7 +363,7 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
                 duration_ms,
                 exc.__class__.__name__,
             )
-            return PROVIDER_TEMPORARY_ERROR_MESSAGE
+            return ChatInvocationResult(PROVIDER_TEMPORARY_ERROR_MESSAGE, [])
 
         logger.exception(
             "[CHAT_GRAPH_ERROR] user_id=%s conversation_id=%s duration_ms=%.1f error_type=%s",
@@ -310,7 +391,13 @@ def invoke_user_chat(user_id: str, conversation_id: str, payload: ChatRequest) -
         len(reply),
     )
 
-    return reply
+    recommendations = extract_recommendations_from_reply(
+        reply,
+        filter_results=result.get("last_filter_results", {}),
+        mediatheken_results=result.get("last_mediatheken_results", {}),
+    )
+
+    return ChatInvocationResult(reply, recommendations)
 
 
 @app.get("/health")
@@ -358,8 +445,82 @@ def _normalize_filter_payload(payload: UserFilterPreferencesPayload) -> tuple[st
     return source, providers, normalized_paymenttypes, include_mediatheken
 
 
-@app.post("/api/v1/chat")
-def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)) -> dict[str, str]:
+def _normalize_watchlist_payload(
+    payload: WatchlistItemPayload,
+) -> tuple[str, str, str, str, str | None, float | None, str | None, list[str]]:
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Watchlist title is required",
+        )
+
+    media_type = payload.media_type.strip().lower()
+    if media_type not in VALID_RECOMMENDATION_MEDIA_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Invalid watchlist media type",
+        )
+
+    rating = payload.rating
+    if rating is not None and (rating < 0 or rating > 10):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Watchlist rating must be between 0 and 10",
+        )
+
+    streaming_providers = []
+    seen_providers: set[str] = set()
+    for provider in payload.streaming_providers:
+        provider_name = provider.strip()
+        provider_key = provider_name.casefold()
+        if not provider_name or provider_key in {"mediathek", "mediatheken"} or provider_key in seen_providers:
+            continue
+        streaming_providers.append(provider_name)
+        seen_providers.add(provider_key)
+
+    if not streaming_providers:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="At least one watchlist provider is required",
+        )
+
+    description = payload.description.strip()
+    cover_url = payload.cover_url.strip() if payload.cover_url else None
+    rating_source = payload.rating_source.strip() if payload.rating_source else None
+    if rating is None:
+        rating_source = None
+
+    return (
+        title,
+        normalize_title_key(title),
+        media_type,
+        description,
+        cover_url,
+        rating,
+        rating_source,
+        streaming_providers,
+    )
+
+
+def _watchlist_item_from_row(row: dict[str, Any]) -> WatchlistItem:
+    return WatchlistItem(
+        id=str(row.get("id", "")),
+        user_id=str(row.get("user_id", "")),
+        title=str(row.get("title", "")),
+        media_type=str(row.get("media_type", "")),
+        description=str(row.get("description", "") or ""),
+        cover_url=row.get("cover_url"),
+        rating=row.get("rating"),
+        rating_source=row.get("rating_source"),
+        streaming_providers=list(row.get("streaming_providers", []) or []),
+        created_at=row.get("created_at"),
+        updated_at=row.get("updated_at"),
+    )
+
+
+@app.post("/api/v1/chat", response_model=ChatResponse)
+def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)) -> ChatResponse:
     user_id = str(user_claims.get("sub", ""))
     access_token = str(user_claims.get("_access_token", ""))
     conversation = get_or_create_active_conversation(user_id=user_id, access_token=access_token)
@@ -375,7 +536,7 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
     )
 
     try:
-        reply = invoke_user_chat(user_id=user_id, conversation_id=conversation_id, payload=payload)
+        reply_result = invoke_user_chat(user_id=user_id, conversation_id=conversation_id, payload=payload)
     except Exception as exc:
         if is_provider_quota_error(exc):
             raise HTTPException(
@@ -383,6 +544,9 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
                 detail=PROVIDER_QUOTA_ERROR_MESSAGE,
             ) from exc
         raise
+
+    reply = str(reply_result)
+    recommendations = getattr(reply_result, "recommendations", []) or []
 
     append_message_log(
         conversation_id=conversation_id,
@@ -393,12 +557,13 @@ def chat(payload: ChatRequest, user_claims: dict = Depends(require_user_context)
         metadata={"source": "api"},
     )
 
-    return {
-        "status": "accepted",
-        "user_id": user_id,
-        "conversation_id": conversation_id,
-        "reply": reply,
-    }
+    return ChatResponse(
+        status="accepted",
+        user_id=user_id,
+        conversation_id=conversation_id,
+        reply=reply,
+        recommendations=[RecommendationCandidate(**recommendation) for recommendation in recommendations],
+    )
 
 
 @app.get("/api/v1/user/filters", response_model=UserFilterPreferencesResponse)
@@ -460,6 +625,70 @@ def save_user_filters(
         providers=list(row.get("providers", providers) or providers),
         paymenttypes=list(row.get("payment_types", paymenttypes) or paymenttypes),
         include_mediatheken=bool(row.get("include_mediatheken", include_mediatheken)),
+    )
+
+
+@app.get("/api/v1/user/watchlist", response_model=WatchlistItemsResponse)
+def get_user_watchlist(user_claims: dict = Depends(require_user_context)) -> WatchlistItemsResponse:
+    user_id = str(user_claims.get("sub", ""))
+    access_token = str(user_claims.get("_access_token", ""))
+
+    rows = list_watchlist_items(user_id=user_id, access_token=access_token)
+    return WatchlistItemsResponse(
+        status="ok",
+        user_id=user_id,
+        items=[_watchlist_item_from_row(row) for row in rows],
+    )
+
+
+@app.post("/api/v1/user/watchlist", response_model=WatchlistItemResponse)
+def save_user_watchlist_item(
+    payload: WatchlistItemPayload,
+    user_claims: dict = Depends(require_user_context),
+) -> WatchlistItemResponse:
+    user_id = str(user_claims.get("sub", ""))
+    access_token = str(user_claims.get("_access_token", ""))
+
+    title, title_key, media_type, description, cover_url, rating, rating_source, streaming_providers = _normalize_watchlist_payload(payload)
+    row = upsert_watchlist_item(
+        user_id=user_id,
+        access_token=access_token,
+        title=title,
+        title_key=title_key,
+        media_type=media_type,
+        description=description,
+        cover_url=cover_url,
+        rating=rating,
+        rating_source=rating_source,
+        streaming_providers=streaming_providers,
+    )
+
+    return WatchlistItemResponse(
+        status="ok",
+        user_id=user_id,
+        item=_watchlist_item_from_row(row),
+    )
+
+
+@app.delete("/api/v1/user/watchlist/{item_id}", response_model=WatchlistDeleteResponse)
+def remove_user_watchlist_item(
+    item_id: str,
+    user_claims: dict = Depends(require_user_context),
+) -> WatchlistDeleteResponse:
+    user_id = str(user_claims.get("sub", ""))
+    access_token = str(user_claims.get("_access_token", ""))
+
+    deleted_row = delete_watchlist_item(user_id=user_id, access_token=access_token, item_id=item_id)
+    if deleted_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Watchlist item not found",
+        )
+
+    return WatchlistDeleteResponse(
+        status="deleted",
+        user_id=user_id,
+        item_id=item_id,
     )
 
 
