@@ -41,7 +41,8 @@ Fullstack MVP (FastAPI + React + Supabase, locally via Docker Compose).
 - Out-of-scope handling ✅
 - Public broadcaster search (ARD/ZDF) ✅
 - Direct links to streaming providers (open)
-- Cover artwork (open)
+- Cover artwork (open)✅
+- Watchlist ✅
 
 
 ## Start Commands
