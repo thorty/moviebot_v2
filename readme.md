@@ -1,5 +1,9 @@
 # Moviebot
 
+![alt text](docs/Screenshot.png)
+
+![alt text](docs/Screenshot2.png)
+
 ## Overview
 Moviebot is an LLM-based movie and TV recommendation assistant.
 
